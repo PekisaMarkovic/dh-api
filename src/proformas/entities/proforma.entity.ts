@@ -12,6 +12,7 @@ import { moneyTransformer } from '@/common/helpers/money.helpers';
 import { Company } from '@/companies/entities/company.entity';
 import { Warehouse } from '@/warehouses/entities/warehouse.entity';
 import { User } from '@/users/entities/user.entity';
+import { Customer } from '@/customers/entities/customer.entity';
 import { ProformaStatusEnums } from '@/proformas/enums/proforma-status.enum';
 import { ProformaItem } from '@/proformas/entities/proforma-item.entity';
 
@@ -36,6 +37,26 @@ export class Proforma extends AuditEntity {
   @ManyToOne(() => Warehouse, { nullable: false })
   @JoinColumn({ name: 'warehouse_id' })
   warehouse: Warehouse;
+
+  @ApiProperty({ nullable: true, description: 'The buyer, can be empty' })
+  @Column({ name: 'customer_id', nullable: true })
+  customerId: number | null;
+
+  @ManyToOne(() => Customer, { nullable: true })
+  @JoinColumn({ name: 'customer_id' })
+  customer: Customer;
+
+  @ApiProperty({
+    nullable: true,
+    description: 'Name of the buyer when the proforma was made',
+  })
+  @Column({
+    name: 'customer_name',
+    type: 'varchar',
+    length: 150,
+    nullable: true,
+  })
+  customerName: string | null;
 
   @ApiProperty({ nullable: true })
   @Column({ name: 'created_by_id', nullable: true })

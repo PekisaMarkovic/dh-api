@@ -12,6 +12,8 @@ import { Invitation } from '@/invitations/entities/invitation.entity';
 import { CompaniesModule } from '@/companies/companies.module';
 import { WarehousesModule } from '@/warehouses/warehouses.module';
 import { DrinksModule } from '@/drinks/drinks.module';
+import { CustomersModule } from '@/customers/customers.module';
+import { Customer } from '@/customers/entities/customer.entity';
 import { Company } from '@/companies/entities/company.entity';
 import { Warehouse } from '@/warehouses/entities/warehouse.entity';
 import { Drink } from '@/drinks/entities/drink.entity';
@@ -46,6 +48,7 @@ import { ValidationToken } from '@/validation-token/entities/validation-token.en
           Company,
           Warehouse,
           Drink,
+          Customer,
           Proforma,
           ProformaItem,
         ],
@@ -60,6 +63,7 @@ import { ValidationToken } from '@/validation-token/entities/validation-token.en
     CompaniesModule,
     WarehousesModule,
     DrinksModule,
+    CustomersModule,
     ProformasModule,
     SeederModule,
   ],

@@ -6,6 +6,7 @@ import * as bodyParser from 'body-parser';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { getDashboardUrl } from '@/common/helpers/url.helpers';
+import { AllExceptionsFilter } from '@/common/filters';
 
 // http://localhost:4200/api
 async function bootstrap() {
@@ -54,6 +55,8 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
+
+  app.useGlobalFilters(new AllExceptionsFilter());
 
   await app.listen(port);
 }

@@ -15,12 +15,16 @@ export class ValidationTokenService {
   /**
    * Create a new token
    * @param CreateValidationToken - The data to create a new token
+   * @param ttlMs - How long the token lives, in milliseconds
    * @returns The created token
    * @throws NotFoundException if the city is not found
    *
    */
-  async createValidationToken(createValidationToken: CreateValidationToken) {
-    const expirationDate = new Date().getTime() + 180 * 60 * 1000;
+  async createValidationToken(
+    createValidationToken: CreateValidationToken,
+    ttlMs: number,
+  ) {
+    const expirationDate = new Date().getTime() + ttlMs;
 
     const token = this.validationRepository.create({
       ...createValidationToken,

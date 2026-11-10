@@ -10,8 +10,8 @@ import { moneyTransformer } from '@/common/helpers/money.helpers';
 import { Proforma } from '@/proformas/entities/proforma.entity';
 
 /**
- * One line of a proforma. Name and price are copied from the drink,
- * so the proforma does not change when the drink is edited later.
+ * One line of a proforma. Name and price are copied from the drink (the price can be
+ * changed for this proforma only), so the proforma does not change when the drink is edited later.
  */
 @Entity({ name: 'proforma_items' })
 export class ProformaItem {
@@ -34,6 +34,10 @@ export class ProformaItem {
   @Column({ name: 'drink_id', nullable: true })
   drinkId: number | null;
 
+  @ApiProperty({ nullable: true, description: 'Article code of the drink' })
+  @Column({ length: 50, nullable: true })
+  code: string | null;
+
   @ApiProperty()
   @Column({ length: 150 })
   name: string;
@@ -42,8 +46,8 @@ export class ProformaItem {
   @Column({
     name: 'unit_price',
     type: 'decimal',
-    precision: 10,
-    scale: 2,
+    precision: 12,
+    scale: 3,
     transformer: moneyTransformer,
   })
   unitPrice: number;
@@ -52,7 +56,18 @@ export class ProformaItem {
   @Column({ type: 'int' })
   quantity: number;
 
-  @ApiProperty({ description: 'unitPrice * quantity' })
+  @ApiProperty({ description: 'Discount of this line in percent, 0 - 100' })
+  @Column({
+    name: 'discount_percent',
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
+    default: 0,
+    transformer: moneyTransformer,
+  })
+  discountPercent: number;
+
+  @ApiProperty({ description: 'unitPrice * quantity, minus the discount' })
   @Column({
     name: 'line_total',
     type: 'decimal',

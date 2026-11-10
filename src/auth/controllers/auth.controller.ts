@@ -121,7 +121,7 @@ export class AuthController {
     type: Boolean,
   })
   async logout(@CurrentUser() user: User) {
-    this.authService.logout(user.email);
+    await this.authService.logout(user.email);
 
     return true;
   }

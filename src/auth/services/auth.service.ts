@@ -14,6 +14,10 @@ import { ConfigService } from '@nestjs/config';
 import { User } from '@/users/entities/user.entity';
 import { LoginDto } from '@/auth/dto';
 import { Nullable } from '@/common/interface';
+import { durationToMs } from '@/common/utils';
+
+const DEFAULT_REFRESH_EXPIRE = '30m';
+const DEFAULT_REFRESH_EXPIRE_MS = 30 * 60 * 1000;
 import { FirstTimeRegisterDto } from '@/users/dto';
 import { InvitationsService } from '@/invitations/services/invitations.service';
 
@@ -129,8 +133,8 @@ export class AuthService {
    * @param email - The email is string
    *
    */
-  logout(email: string) {
-    this.validationTokenService.removeRefreshTokenByEmail(email);
+  async logout(email: string) {
+    await this.validationTokenService.removeRefreshTokenByEmail(email);
   }
 
   /**
@@ -190,7 +194,6 @@ export class AuthService {
       dateOfBirth: user.dateOfBirth,
       lastName: user.lastName,
       companyId: user.companyId,
-      expires: new Date().getTime() + 3600000,
     });
   };
 
@@ -198,18 +201,25 @@ export class AuthService {
     const user = await this.usersService.getUserByEmail(email);
 
     const newAccessToken = this.generateAccessToken(user);
+    const refreshExpire = this.configService.get<string>(
+      'JWT_REFRESH_EXPIRE',
+      DEFAULT_REFRESH_EXPIRE,
+    );
 
     const { token, ...rest } =
-      await this.validationTokenService.createValidationToken({
-        email: user.email,
-        token: newAccessToken,
-        validationTokenType: ValidationTokenTypeEnums.REFRESH,
-      });
+      await this.validationTokenService.createValidationToken(
+        {
+          email: user.email,
+          token: newAccessToken,
+          validationTokenType: ValidationTokenTypeEnums.REFRESH,
+        },
+        durationToMs(refreshExpire, DEFAULT_REFRESH_EXPIRE_MS),
+      );
 
     return {
       access_token: token,
       refresh_token: this.jwtService.sign(rest, {
-        expiresIn: this.configService.get('JWT_REFRESH_EXPIRE'),
+        expiresIn: refreshExpire,
       }),
     };
   }

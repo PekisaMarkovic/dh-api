@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '@/users/entities/user.entity';
@@ -51,6 +56,9 @@ export class DrinksService {
       user,
     );
 
+    await this.assertCodeIsFree(dto.code, warehouse.companyId);
+    this.assertLevels(dto.warningQuantity ?? 0, dto.criticalQuantity ?? 0);
+
     return this.drinkRepository.save(
       this.drinkRepository.create({ ...dto, companyId: warehouse.companyId }),
     );
@@ -59,9 +67,47 @@ export class DrinksService {
   async update(drinkId: number, dto: UpdateDrinkDto, user: User) {
     const drink = await this.findOne(drinkId, user);
 
+    if (dto.code !== undefined && dto.code !== drink.code) {
+      await this.assertCodeIsFree(dto.code, drink.companyId);
+    }
+
+    this.assertLevels(
+      dto.warningQuantity ?? drink.warningQuantity,
+      dto.criticalQuantity ?? drink.criticalQuantity,
+    );
+
     Object.assign(drink, dto);
 
     return this.drinkRepository.save(drink);
+  }
+
+  /**
+   * The red level (has to be bought again) has to be lower than the orange one (warning),
+   * the drink gets orange first and red later. A level of 0 means it is off.
+   * @throws BadRequestException if it is not lower
+   */
+  private assertLevels(warningQuantity: number, criticalQuantity: number) {
+    if (criticalQuantity > 0 && criticalQuantity >= warningQuantity) {
+      throw new BadRequestException(
+        'The quantity for "has to be bought again" has to be lower than the quantity for the warning.',
+      );
+    }
+  }
+
+  /**
+   * The article code has to be unique inside the company
+   * @throws ConflictException if another drink already has the code
+   */
+  private async assertCodeIsFree(code: string, companyId: number) {
+    const exists = await this.drinkRepository.exists({
+      where: { code, companyId },
+    });
+
+    if (exists) {
+      throw new ConflictException(
+        'A drink with this article code already exists.',
+      );
+    }
   }
 
   async remove(drinkId: number, user: User) {

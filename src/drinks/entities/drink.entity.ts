@@ -13,6 +13,11 @@ import { Warehouse } from '@/warehouses/entities/warehouse.entity';
 
 // company_id is denormalized from the warehouse so drinks can be searched per company without a join
 @Index(['companyId', 'name'])
+// the article code is unique inside a company, a deleted drink gives its code free again
+@Index(['companyId', 'code'], {
+  unique: true,
+  where: '"deleted_at" IS NULL',
+})
 @Entity({ name: 'drinks' })
 export class Drink extends AuditEntity {
   @ApiProperty()
@@ -23,11 +28,18 @@ export class Drink extends AuditEntity {
   @Column({ length: 150 })
   name: string;
 
+  @ApiProperty({
+    description: 'Article code (sifra artikla)',
+    example: '352',
+  })
+  @Column({ length: 50, nullable: true })
+  code: string;
+
   @ApiProperty({ description: 'Price per unit' })
   @Column({
     type: 'decimal',
-    precision: 10,
-    scale: 2,
+    precision: 12,
+    scale: 3,
     transformer: {
       to: (value: number) => value,
       from: (value: string | null) => (value === null ? null : Number(value)),
@@ -38,6 +50,20 @@ export class Drink extends AuditEntity {
   @ApiProperty({ description: 'Units in stock' })
   @Column({ type: 'int', default: 0 })
   quantity: number;
+
+  @ApiProperty({
+    description:
+      'Warning: when the quantity falls below this number the drink is orange (0 = no warning)',
+  })
+  @Column({ name: 'warning_quantity', type: 'int', default: 0 })
+  warningQuantity: number;
+
+  @ApiProperty({
+    description:
+      'Critical: when the quantity falls below this number the drink has to be bought again, it is red (0 = off)',
+  })
+  @Column({ name: 'critical_quantity', type: 'int', default: 0 })
+  criticalQuantity: number;
 
   @ApiProperty()
   @Column({ name: 'warehouse_id' })

@@ -13,13 +13,14 @@ import { ProformaItem } from '@/proformas/entities/proforma-item.entity';
 import { Drink } from '@/drinks/entities/drink.entity';
 import { User } from '@/users/entities/user.entity';
 import { WarehousesService } from '@/warehouses/services/warehouses.service';
+import { CustomersService } from '@/customers/services/customers.service';
 import { CompaniesService } from '@/companies/services/companies.service';
 import { ProformaStatusEnums } from '@/proformas/enums/proforma-status.enum';
 import { PdfService } from '@/pdf/services/pdf.service';
 import { CreateProformaDto } from '@/proformas/dto/proforma.dto';
+import { lineTotalCents, vatSummary } from '@/common/helpers/money.helpers';
 
 // money is calculated in cents so 0.1 + 0.2 style errors never reach the total
-const toCents = (value: number) => Math.round(value * 100);
 const fromCents = (cents: number) => cents / 100;
 
 const withNumber = (proforma: Proforma) => ({
@@ -35,6 +36,7 @@ export class ProformasService {
     @InjectRepository(Proforma)
     private readonly proformaRepository: Repository<Proforma>,
     private readonly warehousesService: WarehousesService,
+    private readonly customersService: CustomersService,
     private readonly companiesService: CompaniesService,
     private readonly pdfService: PdfService,
   ) {}
@@ -49,6 +51,11 @@ export class ProformasService {
       dto.warehouseId,
       user,
     );
+
+    // 404 / 403 if the customer is missing or belongs to another company
+    const customer = dto.customerId
+      ? await this.customersService.findOne(dto.customerId, user)
+      : null;
 
     const drinkIds = dto.items.map((item) => item.drinkId);
 
@@ -84,14 +91,23 @@ export class ProformasService {
             );
           }
 
-          const lineCents = toCents(drink.price) * line.quantity;
+          // the price can be changed for this proforma, the drink itself keeps its price
+          const unitPrice = line.unitPrice ?? drink.price;
+          const discountPercent = line.discountPercent ?? 0;
+          const lineCents = lineTotalCents(
+            unitPrice,
+            line.quantity,
+            discountPercent,
+          );
           totalCents += lineCents;
 
           return Object.assign(new ProformaItem(), {
             drinkId: drink.drinkId,
+            code: drink.code,
             name: drink.name,
-            unitPrice: drink.price,
+            unitPrice,
             quantity: line.quantity,
+            discountPercent,
             lineTotal: fromCents(lineCents),
           });
         });
@@ -110,6 +126,8 @@ export class ProformasService {
             companyId: warehouse.companyId,
             warehouseId: warehouse.warehouseId,
             createdById: user.userId,
+            customerId: customer?.customerId ?? null,
+            customerName: customer?.name ?? null,
             total: fromCents(totalCents),
             status: ProformaStatusEnums.ACTIVE,
             items,
@@ -127,15 +145,16 @@ export class ProformasService {
   async findAll(user: User) {
     const proformas = await this.proformaRepository.find({
       where: { companyId: user.companyId ?? -1 },
-      relations: ['warehouse', 'createdBy'],
+      relations: ['items', 'warehouse', 'createdBy'],
       order: { createdAt: 'DESC', proformaId: 'DESC' },
     });
 
     return proformas.map((proforma) => {
-      const { createdBy, warehouse, ...rest } = withNumber(proforma);
+      const { createdBy, warehouse, items, ...rest } = withNumber(proforma);
 
       return {
         ...rest,
+        ...vatSummary(items.map((item) => item.lineTotal)),
         warehouseName: warehouse?.name ?? '',
         createdByName: createdBy
           ? `${createdBy.firstName} ${createdBy.lastName}`
@@ -162,6 +181,7 @@ export class ProformasService {
 
     return {
       ...rest,
+      ...vatSummary(rest.items.map((item) => item.lineTotal)),
       warehouseName: warehouse?.name ?? '',
       createdByName: createdBy
         ? `${createdBy.firstName} ${createdBy.lastName}`
@@ -226,12 +246,14 @@ export class ProformasService {
 
     try {
       const buffer = await this.pdfService.renderProforma({
-        number: proforma.number,
+        // TODO: a counter that restarts every year, now it is "<proformaId>/<yy>" like 40/26
+        documentNumber: `${proforma.proformaId}/${String(new Date(proforma.createdAt).getFullYear()).slice(-2)}`,
         createdAt: proforma.createdAt,
+        warehouseId: proforma.warehouseId,
         warehouseName: proforma.warehouseName,
+        customerName: proforma.customerName,
         createdByName: proforma.createdByName,
         total: proforma.total,
-        status: proforma.status,
         items: proforma.items,
       });
 

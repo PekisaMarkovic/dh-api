@@ -7,12 +7,14 @@ import { ProformasController } from '@/proformas/controllers/proformas.controlle
 import { WarehousesModule } from '@/warehouses/warehouses.module';
 import { PdfModule } from '@/pdf/pdf.module';
 import { CompaniesModule } from '@/companies/companies.module';
+import { CustomersModule } from '@/customers/customers.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Proforma, ProformaItem]),
     WarehousesModule,
     CompaniesModule,
+    CustomersModule,
     PdfModule,
   ],
   controllers: [ProformasController],
