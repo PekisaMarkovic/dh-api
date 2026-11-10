@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
@@ -10,6 +11,7 @@ import { MailerService } from '@/mailer/services/mailer.service';
 import { UsersService } from '@/users/services/users.service';
 import { Nullable } from '@/common/interface';
 import { User } from '@/users/entities/user.entity';
+import { CompaniesService } from '@/companies/services/companies.service';
 
 const INVITATION_TTL_DAYS = 7;
 const INVITATION_TTL_MS = INVITATION_TTL_DAYS * 24 * 60 * 60 * 1000;
@@ -21,6 +23,7 @@ export class InvitationsService {
     private readonly invitationRepository: Repository<Invitation>,
     private readonly usersService: UsersService,
     private readonly mailerService: MailerService,
+    private readonly companiesService: CompaniesService,
   ) {}
 
   /**
@@ -45,6 +48,7 @@ export class InvitationsService {
         email,
         companyId: inviter.companyId,
         expirationDate: Date.now() + INVITATION_TTL_MS,
+        lastSentAt: new Date(),
       }),
     );
 
@@ -68,6 +72,23 @@ export class InvitationsService {
     return invitation;
   }
 
+  private toListItem(invitation: Invitation) {
+    return {
+      invitationId: invitation.invitationId,
+      email: invitation.email,
+      createdAt: invitation.createdAt,
+      // when the email went out last, the same as createdAt until it is sent again
+      sentAt: invitation.lastSentAt ?? invitation.createdAt,
+      expiresAt: new Date(Number(invitation.expirationDate)),
+      acceptedAt: invitation.acceptedAt,
+      status: invitation.acceptedAt
+        ? 'accepted'
+        : Number(invitation.expirationDate) < Date.now()
+          ? 'expired'
+          : 'pending',
+    };
+  }
+
   /**
    * All invitations of a company with a computed status
    */
@@ -77,18 +98,63 @@ export class InvitationsService {
       order: { createdAt: 'DESC' },
     });
 
-    return invitations.map((invitation) => ({
-      invitationId: invitation.invitationId,
-      email: invitation.email,
-      createdAt: invitation.createdAt,
-      expiresAt: new Date(Number(invitation.expirationDate)),
-      acceptedAt: invitation.acceptedAt,
-      status: invitation.acceptedAt
-        ? 'accepted'
-        : Number(invitation.expirationDate) < Date.now()
-          ? 'expired'
-          : 'pending',
-    }));
+    return invitations.map((invitation) => this.toListItem(invitation));
+  }
+
+  /**
+   * Send the email of an invitation again and start its expiry again (7 days from now).
+   * The invitation keeps its id, so the link of the first email works again too.
+   * @throws NotFoundException if there is no such invitation
+   * @throws ConflictException if it was already used, or the person has an account now
+   */
+  async resend(invitationId: string, user: User) {
+    // not a uuid -> postgres would throw, treat as not found
+    const invitation = /^[0-9a-f-]{36}$/i.test(invitationId)
+      ? await this.invitationRepository.findOne({ where: { invitationId } })
+      : null;
+
+    if (!invitation) {
+      throw new NotFoundException('Invitation not found');
+    }
+
+    this.companiesService.assertCanAccess(user, invitation.companyId);
+
+    if (invitation.acceptedAt) {
+      throw new ConflictException('Invitation was already used');
+    }
+
+    if (await this.usersService.getUserByEmail(invitation.email)) {
+      throw new ConflictException('User with this email already exists');
+    }
+
+    const previous = {
+      expirationDate: invitation.expirationDate,
+      lastSentAt: invitation.lastSentAt,
+    };
+
+    invitation.expirationDate = Date.now() + INVITATION_TTL_MS;
+    invitation.lastSentAt = new Date();
+    await this.invitationRepository.save(invitation);
+
+    try {
+      await this.mailerService.sendInvitationMail({
+        data: {
+          invitationId: invitation.invitationId,
+          validDays: String(INVITATION_TTL_DAYS),
+        },
+        recipients: [{ name: '', address: invitation.email }],
+      });
+    } catch (error) {
+      // the email did not go out, so the invitation keeps its old expiry
+      await this.invitationRepository.update(
+        { invitationId: invitation.invitationId },
+        previous,
+      );
+
+      throw error;
+    }
+
+    return this.toListItem(invitation);
   }
 
   /**

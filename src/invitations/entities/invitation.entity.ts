@@ -23,6 +23,10 @@ export class Invitation {
   @Column({ type: 'timestamp', name: 'accepted_at', nullable: true })
   acceptedAt: Date | null;
 
+  @ApiProperty({ nullable: true, description: 'When the email was sent last' })
+  @Column({ type: 'timestamp', name: 'last_sent_at', nullable: true })
+  lastSentAt: Date | null;
+
   @ApiProperty()
   @Column({ type: 'timestamp', name: 'created_at', default: () => 'now()' })
   createdAt: Date;

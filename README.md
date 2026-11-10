@@ -93,6 +93,8 @@ Every start checks and fills in what is missing, it never overwrites anything:
 
 Details: inviting the same email again replaces the pending invitation, an email that already has a user gets `409`, and if the email could not be sent the invitation is removed again and the API answers `422`.
 
+**Sending again.** When a link expired (or the email got lost) an admin calls `POST /invitations/:id/resend`. The email goes out again, the expiry starts again (7 days from now) and the invitation keeps its id, so the link in the first email works again too. It is refused with `409` if the invitation was already used or the person already has an account, and if the email cannot be sent the old expiry stays.
+
 ### Warehouses and drinks
 
 - `Company 1 → * Warehouse 1 → * Drink`. A drink also stores its `company_id`, so drinks can be searched per company without joins.
@@ -123,7 +125,7 @@ Everything is under `/api`. All need a login except where it says public.
 | --- | --- |
 | Auth | `POST auth/login` (public), `auth/refresh` (public), `auth/first-time-register` (public), `auth/is-user-token-valid` (public), `auth/logout` |
 | Users | `GET users/profile`, `PATCH users/profile` (phone, date of birth, language), `GET users` (super admin) |
-| Invitations | `POST invitations` (admin), `GET invitations` (admin), `GET invitations/:id/valid` (public) |
+| Invitations | `POST invitations` (admin), `GET invitations` (admin), `POST invitations/:id/resend` (admin), `GET invitations/:id/valid` (public) |
 | Companies | `GET companies`, `GET companies/:id`, `GET companies/:id/users` (admin), `POST companies` (super admin), `PATCH companies/:id` (admin), `DELETE companies/:id` (super admin) |
 | Warehouses | `GET warehouses`, `GET warehouses/:id`, `POST` `PATCH` `DELETE` (admin) |
 | Drinks | `GET drinks` (`?warehouseId=`), `GET drinks/:id`, `POST` `PATCH` `DELETE` (admin) |
