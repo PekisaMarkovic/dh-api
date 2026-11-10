@@ -9,7 +9,7 @@
     "build": "nest build",
     "vercel-build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-    "start": "ts-node src/main.ts",
+    "start": "node dist/main",
     "dev": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",

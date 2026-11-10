@@ -157,7 +157,7 @@ Each feature folder is `entities/`, `dto/`, `services/`, `controllers/` and a `*
 | Command | What it does |
 | --- | --- |
 | `pnpm start:dev` | Run with auto restart. |
-| `pnpm build` then `pnpm start:prod` | Production build and run. |
+| `pnpm build` then `pnpm start` | Production build and run (`pnpm start` runs `node dist/main`, so it needs the build first; hosts like Railway do both). |
 | `pnpm lint` | ESLint. |
 | `pnpm format` | Prettier. |
 
