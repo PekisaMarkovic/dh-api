@@ -14,6 +14,7 @@ import { WarehousesModule } from '@/warehouses/warehouses.module';
 import { DrinksModule } from '@/drinks/drinks.module';
 import { CustomersModule } from '@/customers/customers.module';
 import { Customer } from '@/customers/entities/customer.entity';
+import { useDatabaseSsl } from '@/db/ssl';
 import { Company } from '@/companies/entities/company.entity';
 import { Warehouse } from '@/warehouses/entities/warehouse.entity';
 import { Drink } from '@/drinks/entities/drink.entity';
@@ -39,8 +40,8 @@ import { ValidationToken } from '@/validation-token/entities/validation-token.en
         username: configService.get('DB_USERNAME'),
         password: configService.get('DB_PASSWORD'),
         database: configService.get('DB_NAME'),
-        // hosted databases (Neon, ...) accept only encrypted connections: DB_SSL=true
-        ssl: configService.get('DB_SSL') === 'true',
+        // encrypted (sslmode=require) everywhere except locally, see useDatabaseSsl
+        ssl: useDatabaseSsl((key) => configService.get<string>(key)),
         entities: [
           User,
           Role,

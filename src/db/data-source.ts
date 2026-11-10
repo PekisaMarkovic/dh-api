@@ -1,5 +1,6 @@
 import { DataSource } from 'typeorm';
 import { config } from 'dotenv';
+import { useDatabaseSsl } from './ssl';
 
 config();
 
@@ -10,8 +11,8 @@ export default new DataSource({
   username: process.env.DB_USERNAME,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  // hosted databases (Neon, ...) accept only encrypted connections: DB_SSL=true
-  ssl: process.env.DB_SSL === 'true',
+  // encrypted (sslmode=require) everywhere except locally, see useDatabaseSsl
+  ssl: useDatabaseSsl((key) => process.env[key]),
   entities: ['src/**/*.entity.ts'],
   migrations: ['src/migrations/*.ts'],
   synchronize: false,
