@@ -10,6 +10,7 @@ import { User } from '@/users/entities/user.entity';
 import { Drink } from '@/drinks/entities/drink.entity';
 import { CompaniesService } from '@/companies/services/companies.service';
 import { WarehousesService } from '@/warehouses/services/warehouses.service';
+import { StockAlertsService } from '@/stock-alerts/services/stock-alerts.service';
 import { CreateDrinkDto, UpdateDrinkDto } from '@/drinks/dto/drink.dto';
 
 @Injectable()
@@ -19,6 +20,7 @@ export class DrinksService {
     private readonly drinkRepository: Repository<Drink>,
     private readonly warehousesService: WarehousesService,
     private readonly companiesService: CompaniesService,
+    private readonly stockAlertsService: StockAlertsService,
   ) {}
 
   async findAll(user: User, warehouseId?: number) {
@@ -76,9 +78,31 @@ export class DrinksService {
       dto.criticalQuantity ?? drink.criticalQuantity,
     );
 
+    const before = {
+      quantity: drink.quantity,
+      warningQuantity: drink.warningQuantity,
+      criticalQuantity: drink.criticalQuantity,
+    };
+
     Object.assign(drink, dto);
 
-    return this.drinkRepository.save(drink);
+    const saved = await this.drinkRepository.save(drink);
+
+    // the quantity or the levels changed by hand, the employees are told if it got worse
+    this.stockAlertsService.notifyIfWorse({
+      companyId: saved.companyId,
+      warehouseId: saved.warehouseId,
+      drinkName: saved.name,
+      drinkCode: saved.code,
+      before,
+      after: {
+        quantity: saved.quantity,
+        warningQuantity: saved.warningQuantity,
+        criticalQuantity: saved.criticalQuantity,
+      },
+    });
+
+    return saved;
   }
 
   /**

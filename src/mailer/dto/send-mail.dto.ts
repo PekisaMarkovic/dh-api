@@ -19,3 +19,14 @@ export interface BrevoSendResult {
   skipped: boolean;
   messageId?: string;
 }
+
+export interface StockAlertMailDto {
+  level: 'warning' | 'critical';
+  recipients: MailAddress[];
+  drinkName: string;
+  drinkCode: string;
+  warehouseName: string;
+  quantity: number;
+  // the quantity the drink fell below
+  threshold: number;
+}

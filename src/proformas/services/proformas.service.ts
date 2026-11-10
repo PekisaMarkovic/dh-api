@@ -14,6 +14,10 @@ import { Drink } from '@/drinks/entities/drink.entity';
 import { User } from '@/users/entities/user.entity';
 import { WarehousesService } from '@/warehouses/services/warehouses.service';
 import { CustomersService } from '@/customers/services/customers.service';
+import {
+  StockAlertsService,
+  StockChange,
+} from '@/stock-alerts/services/stock-alerts.service';
 import { CompaniesService } from '@/companies/services/companies.service';
 import { ProformaStatusEnums } from '@/proformas/enums/proforma-status.enum';
 import { PdfService } from '@/pdf/services/pdf.service';
@@ -38,6 +42,7 @@ export class ProformasService {
     private readonly warehousesService: WarehousesService,
     private readonly customersService: CustomersService,
     private readonly companiesService: CompaniesService,
+    private readonly stockAlertsService: StockAlertsService,
     private readonly pdfService: PdfService,
   ) {}
 
@@ -62,6 +67,9 @@ export class ProformasService {
     if (new Set(drinkIds).size !== drinkIds.length) {
       throw new BadRequestException('Each drink can be added only once');
     }
+
+    // what the stock of every drink was and is, to tell the employees when it gets low
+    const stockChanges: StockChange[] = [];
 
     const saved = await this.proformaRepository.manager.transaction(
       async (manager) => {
@@ -119,6 +127,22 @@ export class ProformasService {
             'quantity',
             line.quantity,
           );
+
+          // the drinks were locked and read before the decrement, so they still have the old quantity
+          const drink = drinkById.get(line.drinkId);
+          const levels = {
+            warningQuantity: drink.warningQuantity,
+            criticalQuantity: drink.criticalQuantity,
+          };
+
+          stockChanges.push({
+            companyId: drink.companyId,
+            warehouseId: drink.warehouseId,
+            drinkName: drink.name,
+            drinkCode: drink.code,
+            before: { quantity: drink.quantity, ...levels },
+            after: { quantity: drink.quantity - line.quantity, ...levels },
+          });
         }
 
         return manager.save(
@@ -134,6 +158,11 @@ export class ProformasService {
           }),
         );
       },
+    );
+
+    // only now, when the proforma is really saved, the employees hear about the low stock
+    stockChanges.forEach((change) =>
+      this.stockAlertsService.notifyIfWorse(change),
     );
 
     return this.findOne(saved.proformaId, user);

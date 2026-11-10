@@ -39,6 +39,8 @@ import { ValidationToken } from '@/validation-token/entities/validation-token.en
         username: configService.get('DB_USERNAME'),
         password: configService.get('DB_PASSWORD'),
         database: configService.get('DB_NAME'),
+        // hosted databases (Neon, ...) accept only encrypted connections: DB_SSL=true
+        ssl: configService.get('DB_SSL') === 'true',
         entities: [
           User,
           Role,

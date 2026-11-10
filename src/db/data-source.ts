@@ -10,6 +10,8 @@ export default new DataSource({
   username: process.env.DB_USERNAME,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
+  // hosted databases (Neon, ...) accept only encrypted connections: DB_SSL=true
+  ssl: process.env.DB_SSL === 'true',
   entities: ['src/**/*.entity.ts'],
   migrations: ['src/migrations/*.ts'],
   synchronize: false,
