@@ -32,10 +32,13 @@ export class CustomersService {
     const pattern = toLikePattern(query.search);
 
     return paginate(this.customerRepository, query, {
-      where: {
-        companyId: user.companyId ?? -1,
-        ...(pattern && { name: ILike(pattern) }),
-      },
+      // name OR code
+      where: pattern
+        ? [
+            { companyId: user.companyId ?? -1, name: ILike(pattern) },
+            { companyId: user.companyId ?? -1, code: ILike(pattern) },
+          ]
+        : { companyId: user.companyId ?? -1 },
       order: { name: 'ASC', customerId: 'ASC' },
     });
   }
@@ -75,12 +78,10 @@ export class CustomersService {
     }
 
     await this.assertNameIsFree(dto.name, user.companyId);
+    await this.assertCodeIsFree(dto.code, user.companyId);
 
     return this.customerRepository.save(
-      this.customerRepository.create({
-        name: dto.name,
-        companyId: user.companyId,
-      }),
+      this.customerRepository.create({ ...dto, companyId: user.companyId }),
     );
   }
 
@@ -89,6 +90,10 @@ export class CustomersService {
 
     if (dto.name !== undefined && dto.name !== customer.name) {
       await this.assertNameIsFree(dto.name, customer.companyId, customerId);
+    }
+
+    if (dto.code && dto.code !== customer.code) {
+      await this.assertCodeIsFree(dto.code, customer.companyId, customerId);
     }
 
     Object.assign(customer, dto);
@@ -104,6 +109,24 @@ export class CustomersService {
     await this.customerRepository.softDelete({ customerId });
 
     return true;
+  }
+
+  /**
+   * The customer code has to be unique inside the company
+   * @throws ConflictException if another customer already has the code
+   */
+  private async assertCodeIsFree(
+    code: string,
+    companyId: number,
+    exceptCustomerId?: number,
+  ) {
+    const same = await this.customerRepository.findOne({
+      where: { code, companyId },
+    });
+
+    if (same && same.customerId !== exceptCustomerId) {
+      throw new ConflictException('A customer with this code already exists.');
+    }
   }
 
   /**
