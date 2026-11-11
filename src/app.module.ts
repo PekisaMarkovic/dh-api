@@ -13,6 +13,8 @@ import { CompaniesModule } from '@/companies/companies.module';
 import { WarehousesModule } from '@/warehouses/warehouses.module';
 import { DrinksModule } from '@/drinks/drinks.module';
 import { CustomersModule } from '@/customers/customers.module';
+import { StockAlertsModule } from '@/stock-alerts/stock-alerts.module';
+import { ScheduleModule } from '@nestjs/schedule';
 import { Customer } from '@/customers/entities/customer.entity';
 import { useDatabaseSsl } from '@/db/ssl';
 import { Company } from '@/companies/entities/company.entity';
@@ -58,6 +60,7 @@ import { ValidationToken } from '@/validation-token/entities/validation-token.en
         synchronize: true,
       }),
     }),
+    ScheduleModule.forRoot(),
     MailerModule,
     AuthModule,
     UsersModule,
@@ -68,6 +71,7 @@ import { ValidationToken } from '@/validation-token/entities/validation-token.en
     DrinksModule,
     CustomersModule,
     ProformasModule,
+    StockAlertsModule,
     SeederModule,
   ],
   providers: [

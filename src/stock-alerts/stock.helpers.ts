@@ -21,12 +21,3 @@ export const getStockLevel = ({
 
   return 'ok';
 };
-
-const RANK: Record<StockLevel, number> = { ok: 0, warning: 1, critical: 2 };
-
-/**
- * True when the stock got worse (ok -> warning, ok -> critical, warning -> critical).
- * Staying on the same level, or getting better, is not news.
- */
-export const isWorse = (before: StockLevel, after: StockLevel) =>
-  RANK[after] > RANK[before];

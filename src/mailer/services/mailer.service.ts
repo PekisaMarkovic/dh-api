@@ -3,7 +3,13 @@ import { ConfigService } from '@nestjs/config';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { getDashboardUrl } from '@/common/helpers/url.helpers';
-import { MailAddress, SendMailDto, StockAlertMailDto } from '@/mailer/dto';
+import { getStockDigestTexts } from '@/mailer/texts/stock-digest.texts';
+import {
+  MailAddress,
+  SendMailDto,
+  StockDigestItem,
+  StockDigestMailDto,
+} from '@/mailer/dto';
 import { BrevoService } from '@/mailer/services/brevo.service';
 import { SmtpService } from '@/mailer/services/smtp.service';
 
@@ -75,43 +81,113 @@ export class MailerService {
   }
 
   /**
-   * Send the "stock is low" email to every recipient, one email for each of them,
-   * so nobody sees the addresses of the others.
-   * Level warning: the drink fell below the warning quantity.
-   * Level critical: it fell below the quantity where it has to be bought again.
-   * It does not throw, a failed email is only logged (the stock change already happened).
+   * The overview of everything that is low, one email for each recipient (so nobody sees
+   * the addresses of the others), written in the language of the recipient.
+   * Red: has to be bought again, orange: only a warning. With nothing low it says that all is good.
+   * It does not throw, a failed email is only logged.
+   * @returns how many emails were sent
    */
-  async sendStockAlertMail(dto: StockAlertMailDto) {
-    const isCritical = dto.level === 'critical';
-    const template = isCritical ? 'stock-critical.html' : 'stock-warning.html';
-    const subject = isCritical
-      ? `Hitno: treba dokupiti - ${dto.drinkName}`
-      : `Upozorenje: niska zaliha - ${dto.drinkName}`;
-    const data = {
-      drink_name: escapeHtml(dto.drinkName),
-      drink_code: escapeHtml(dto.drinkCode || '-'),
-      warehouse_name: escapeHtml(dto.warehouseName),
-      quantity: String(dto.quantity),
-      threshold: String(dto.threshold),
+  async sendStockDigestMail(dto: StockDigestMailDto) {
+    const { critical, warning } = dto;
+    const hour = Number(
+      new Intl.DateTimeFormat('en-GB', {
+        hour: 'numeric',
+        hour12: false,
+        timeZone: 'Europe/Belgrade',
+      }).format(new Date()),
+    );
+    const isAllGood = !critical.length && !warning.length;
+    const common = {
       link: `${getDashboardUrl(this.configService)}/drinks`,
       current_year: `${new Date().getFullYear()}`,
     };
 
     const results = await Promise.allSettled(
-      dto.recipients.map((recipient) =>
-        this.sendMail(subject, [recipient], template, data),
-      ),
+      dto.recipients.map((recipient) => {
+        const texts = getStockDigestTexts(recipient.language);
+        const part = texts.part(hour < 12);
+
+        return this.sendMail(
+          isAllGood
+            ? texts.subjectAllGood(part)
+            : texts.subject(critical.length, warning.length, part),
+          [{ address: recipient.address, name: recipient.name }],
+          'stock-digest.html',
+          {
+            ...common,
+            title: texts.title,
+            intro: isAllGood
+              ? texts.allGood
+              : texts.intro(critical.length, warning.length),
+            critical_section: this.stockSection(
+              texts.criticalTitle,
+              '#E11D2E',
+              [texts.drink, texts.stock, texts.criticalLimit],
+              critical,
+            ),
+            warning_section: this.stockSection(
+              texts.warningTitle,
+              '#F28500',
+              [texts.drink, texts.stock, texts.warningLimit],
+              warning,
+            ),
+            button: texts.button,
+            fallback: texts.fallback,
+            footer: texts.footer(part),
+          },
+        );
+      }),
     );
 
     results.forEach((result, index) => {
       if (result.status === 'rejected') {
         this.logger.error(
-          `Could not send the stock alert to ${dto.recipients[index].address}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`,
+          `Could not send the stock overview to ${dto.recipients[index].address}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`,
         );
       }
     });
 
     return results.filter((result) => result.status === 'fulfilled').length;
+  }
+
+  /**
+   * One table of the overview (inline styles only, see the template), empty text when there is nothing
+   */
+  private stockSection(
+    title: string,
+    color: string,
+    labels: [string, string, string],
+    items: StockDigestItem[],
+  ) {
+    if (!items.length) {
+      return '';
+    }
+
+    const cell = 'padding: 8px 10px; border-bottom: 1px solid #e2e4e9;';
+    const rows = items
+      .map(
+        (item) => `
+          <tr>
+            <td style="${cell}">${escapeHtml(item.name)}<br /><span style="color: #64748b; font-size: 12px">${escapeHtml(item.code || '-')} &middot; ${escapeHtml(item.warehouseName)}</span></td>
+            <td style="${cell} text-align: right; font-weight: 700; color: ${color}">${item.quantity}</td>
+            <td style="${cell} text-align: right; color: #64748b">${item.threshold}</td>
+          </tr>`,
+      )
+      .join('');
+
+    return `
+      <tr>
+        <td style="padding: 16px 32px 0">
+          <p style="margin: 0 0 8px; font-family: Helvetica, Arial, sans-serif; font-size: 15px; font-weight: 700; color: ${color}">${title} (${items.length})</p>
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border: 1px solid #e2e4e9; border-left: 4px solid ${color}; border-radius: 6px; font-family: Helvetica, Arial, sans-serif; font-size: 14px; color: #334155">
+            <tr style="background-color: #f6f8fa">
+              <td style="padding: 8px 10px; color: #64748b; font-size: 12px">${labels[0]}</td>
+              <td style="padding: 8px 10px; color: #64748b; font-size: 12px; text-align: right">${labels[1]}</td>
+              <td style="padding: 8px 10px; color: #64748b; font-size: 12px; text-align: right">${labels[2]}</td>
+            </tr>${rows}
+          </table>
+        </td>
+      </tr>`;
   }
 
   /**

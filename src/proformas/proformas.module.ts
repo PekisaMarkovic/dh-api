@@ -8,7 +8,6 @@ import { WarehousesModule } from '@/warehouses/warehouses.module';
 import { PdfModule } from '@/pdf/pdf.module';
 import { CompaniesModule } from '@/companies/companies.module';
 import { CustomersModule } from '@/customers/customers.module';
-import { StockAlertsModule } from '@/stock-alerts/stock-alerts.module';
 
 @Module({
   imports: [
@@ -16,7 +15,6 @@ import { StockAlertsModule } from '@/stock-alerts/stock-alerts.module';
     WarehousesModule,
     CompaniesModule,
     CustomersModule,
-    StockAlertsModule,
     PdfModule,
   ],
   controllers: [ProformasController],
