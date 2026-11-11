@@ -285,7 +285,8 @@ export class ProformasService {
         warehouseId: proforma.warehouseId,
         warehouseName: proforma.warehouseName,
         customerName: proforma.customerName,
-        createdByName: proforma.createdByName,
+        // the name from the company profile if it is set, else the employee who made it
+        createdByName: company.invoiceName || proforma.createdByName,
         total: proforma.total,
         items: proforma.items,
       });

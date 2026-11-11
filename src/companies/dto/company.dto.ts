@@ -60,6 +60,14 @@ export class CreateCompanyDto {
   })
   phone?: string | null;
 
+  @ApiProperty({ required: false, nullable: true })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @Transform(({ value }) => (trim({ value }) === '' ? null : trim({ value })))
+  @IsString()
+  @MaxLength(150)
+  invoiceName?: string | null;
+
   @ApiProperty({ example: '160600000012345678' })
   @Transform(trim)
   @IsString()

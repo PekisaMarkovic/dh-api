@@ -47,6 +47,15 @@ export class Company extends AuditEntity {
   @Column({ name: 'bank_account', length: 40, default: '' })
   bankAccount: string;
 
+  @ApiProperty({
+    nullable: true,
+    description:
+      'The name printed as the issuer of the proforma PDF, the name of the employee is printed when it is empty',
+    example: 'Petar Petrovic',
+  })
+  @Column({ name: 'invoice_name', type: 'varchar', length: 150, nullable: true })
+  invoiceName: string | null;
+
   @ApiProperty({ type: () => [Warehouse] })
   @OneToMany(() => Warehouse, (warehouse) => warehouse.company)
   warehouses: Warehouse[];
