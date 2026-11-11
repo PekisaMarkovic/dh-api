@@ -68,6 +68,16 @@ export class CompaniesService {
     return company;
   }
 
+  /**
+   * The oldest company, there is a single company for now
+   */
+  findFirst() {
+    return this.companyRepository.findOne({
+      where: {},
+      order: { companyId: 'ASC' },
+    });
+  }
+
   findByName(name: string) {
     return this.companyRepository.findOne({ where: { name } });
   }

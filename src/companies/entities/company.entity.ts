@@ -11,9 +11,41 @@ export class Company extends AuditEntity {
   @PrimaryGeneratedColumn({ name: 'company_id' })
   companyId: number;
 
-  @ApiProperty()
+  @ApiProperty({
+    description: 'The name of the company, it is also printed on the documents',
+    example: 'KNEZ BAR',
+  })
   @Column({ length: 150, unique: true })
   name: string;
+
+  // ---- the data of the company that is printed on the documents (the proforma PDF), the name is `name` ----
+
+  @ApiProperty({ example: 'KNEZ MIHAILOVA 22' })
+  @Column({ length: 150, default: '' })
+  street: string;
+
+  @ApiProperty({ example: 'BEOGRAD' })
+  @Column({ length: 100, default: '' })
+  city: string;
+
+  @ApiProperty({ description: 'Tax number (PIB)', example: '123456789' })
+  @Column({ length: 20, default: '' })
+  pib: string;
+
+  @ApiProperty({
+    description: 'Company registration number (matični broj)',
+    example: '12345678',
+  })
+  @Column({ name: 'registration_number', length: 20, default: '' })
+  registrationNumber: string;
+
+  @ApiProperty({ nullable: true })
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  phone: string | null;
+
+  @ApiProperty({ description: 'Bank account', example: '160600000012345678' })
+  @Column({ name: 'bank_account', length: 40, default: '' })
+  bankAccount: string;
 
   @ApiProperty({ type: () => [Warehouse] })
   @OneToMany(() => Warehouse, (warehouse) => warehouse.company)

@@ -243,9 +243,20 @@ export class ProformasService {
    */
   async createPdf(proformaId: number, user: User) {
     const proforma = await this.findOne(proformaId, user);
+    // the data of the seller is printed from the company of the proforma
+    const company = await this.companiesService.findOne(proforma.companyId);
 
     try {
       const buffer = await this.pdfService.renderProforma({
+        seller: {
+          name: company.name,
+          street: company.street,
+          city: company.city,
+          pib: company.pib,
+          registrationNumber: company.registrationNumber,
+          phone: company.phone,
+          bankAccount: company.bankAccount,
+        },
         // TODO: a counter that restarts every year, now it is "<proformaId>/<yy>" like 40/26
         documentNumber: `${proforma.proformaId}/${String(new Date(proforma.createdAt).getFullYear()).slice(-2)}`,
         createdAt: proforma.createdAt,

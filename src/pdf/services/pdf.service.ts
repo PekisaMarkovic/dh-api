@@ -13,6 +13,16 @@ import PDFDocument = require('pdfkit');
 export type ProformaPdfData = {
   /** The number that is printed on the document, e.g. 40/26 */
   documentNumber: string;
+  /** The seller: the company that made the proforma, from the companies table */
+  seller: {
+    name: string;
+    street: string;
+    city: string;
+    pib: string;
+    registrationNumber: string;
+    phone: string | null;
+    bankAccount: string;
+  };
   createdAt: Date;
   warehouseId: number;
   warehouseName: string;
@@ -254,13 +264,15 @@ export class PdfService {
 
       // ---- the top of the first page ----------------------------------------------
       const header = () => {
-        text(mock.seller.name, 48, 63, { size: 12 });
-        text(mock.seller.street, 48, 87, { size: 10 });
-        text(mock.seller.city, 48, 107, { size: 10 });
-        text(`PIB: ${mock.seller.pib}`, 48, 125, { size: 10 });
-        text(`MB: ${mock.seller.mb}`, 343, 125, { size: 10 });
-        text(`TEL: ${mock.seller.phone}`, 48, 145, { size: 10 });
-        text(`Tekući račun: ${mock.seller.bankAccount}`, 48, 210, { size: 10 });
+        text(data.seller.name, 48, 63, { size: 12 });
+        text(data.seller.street, 48, 87, { size: 10 });
+        text(data.seller.city, 48, 107, { size: 10 });
+        text(`PIB: ${data.seller.pib}`, 48, 125, { size: 10 });
+        text(`MB: ${data.seller.registrationNumber}`, 343, 125, { size: 10 });
+        text(`TEL: ${data.seller.phone ?? ''}`, 48, 145, { size: 10 });
+        text(`Tekući račun: ${data.seller.bankAccount}`, 48, 210, {
+          size: 10,
+        });
         // two spaces before the number, like the original
         text(
           `PRILIKOM UPLATE POZVATI SE NA BROJ:  ${data.documentNumber}`,
@@ -299,7 +311,7 @@ export class PdfService {
           377,
           { size: 8.2 },
         );
-        text(`Mesto izdavanja računa : ${mock.placeOfIssue}`, 371, 377, {
+        text(`Mesto izdavanja računa : ${data.seller.city}`, 371, 377, {
           size: 7.8,
         });
         text(
