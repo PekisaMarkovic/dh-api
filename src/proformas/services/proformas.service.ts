@@ -1,3 +1,4 @@
+import { paginate, Pagination } from 'nestjs-typeorm-paginate';
 import {
   BadRequestException,
   ConflictException,
@@ -7,7 +8,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { FindOptionsWhere, ILike, In, Repository } from 'typeorm';
 import { Proforma } from '@/proformas/entities/proforma.entity';
 import { ProformaItem } from '@/proformas/entities/proforma-item.entity';
 import { Drink } from '@/drinks/entities/drink.entity';
@@ -17,6 +18,8 @@ import { CustomersService } from '@/customers/services/customers.service';
 import { CompaniesService } from '@/companies/services/companies.service';
 import { ProformaStatusEnums } from '@/proformas/enums/proforma-status.enum';
 import { PdfService } from '@/pdf/services/pdf.service';
+import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
+import { toLikePattern } from '@/common/helpers';
 import { CreateProformaDto } from '@/proformas/dto/proforma.dto';
 import { lineTotalCents, vatSummary } from '@/common/helpers/money.helpers';
 
@@ -140,16 +143,33 @@ export class ProformasService {
   }
 
   /**
-   * Proformas of the company of the user, newest first (without items)
+   * A page of the proformas of the company of the user, newest first (without items).
+   * The search finds the number (PR-000012 or just 12), the buyer and the warehouse.
    */
-  async findAll(user: User) {
-    const proformas = await this.proformaRepository.find({
-      where: { companyId: user.companyId ?? -1 },
+  async findAll(user: User, query: PaginationQueryDto) {
+    const base: FindOptionsWhere<Proforma> = {
+      companyId: user.companyId ?? -1,
+    };
+    const pattern = toLikePattern(query.search);
+    const digits = query.search?.replace(/\D/g, '');
+    const where: FindOptionsWhere<Proforma>[] = pattern
+      ? [
+          { ...base, customerName: ILike(pattern) },
+          { ...base, warehouse: { name: ILike(pattern) } },
+          // the number is made of the id, e.g. PR-000012
+          ...(digits && digits.length <= 9
+            ? [{ ...base, proformaId: Number(digits) }]
+            : []),
+        ]
+      : [base];
+
+    const page = await paginate(this.proformaRepository, query, {
+      where,
       relations: ['items', 'warehouse', 'createdBy'],
       order: { createdAt: 'DESC', proformaId: 'DESC' },
     });
 
-    return proformas.map((proforma) => {
+    const rows = page.items.map((proforma) => {
       const { createdBy, warehouse, items, ...rest } = withNumber(proforma);
 
       return {
@@ -161,6 +181,8 @@ export class ProformasService {
           : '',
       };
     });
+
+    return new Pagination(rows, page.meta);
   }
 
   async findOne(proformaId: number, user: User) {

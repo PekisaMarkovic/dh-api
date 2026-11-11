@@ -22,17 +22,54 @@ export class WarehousesService {
     private readonly companiesService: CompaniesService,
   ) {}
 
-  findAll(user: User, requestedCompanyId?: number) {
+  /**
+   * Warehouses with the number of their drinks and the value of the stock (in cents),
+   * so the page does not need all the drinks to show them
+   */
+  async findAll(user: User, requestedCompanyId?: number) {
     const companyId = requestedCompanyId ?? user.companyId;
 
     if (companyId) {
       this.companiesService.assertCanAccess(user, companyId);
     }
 
-    return this.warehouseRepository.find({
+    const warehouses = await this.warehouseRepository.find({
       where: companyId ? { companyId } : {},
-      order: { name: 'ASC' },
+      order: { name: 'ASC', warehouseId: 'ASC' },
     });
+
+    if (!warehouses.length) {
+      return [];
+    }
+
+    const stats = await this.warehouseRepository.manager
+      .createQueryBuilder(Drink, 'drink')
+      .select('drink.warehouseId', 'warehouseId')
+      .addSelect('COUNT(*)', 'drinksCount')
+      // every line is rounded to cents, the same as the dashboard did
+      .addSelect(
+        'COALESCE(SUM(ROUND(drink.price * drink.quantity * 100)), 0)',
+        'totalValueCents',
+      )
+      .where('drink.warehouseId IN (:...ids)', {
+        ids: warehouses.map((w) => w.warehouseId),
+      })
+      .groupBy('drink.warehouseId')
+      .getRawMany<{
+        warehouseId: number;
+        drinksCount: string;
+        totalValueCents: string;
+      }>();
+
+    const byId = new Map(stats.map((s) => [Number(s.warehouseId), s]));
+
+    return warehouses.map((warehouse) => ({
+      ...warehouse,
+      drinksCount: Number(byId.get(warehouse.warehouseId)?.drinksCount ?? 0),
+      totalValueCents: Number(
+        byId.get(warehouse.warehouseId)?.totalValueCents ?? 0,
+      ),
+    }));
   }
 
   async findOne(warehouseId: number, user?: User) {

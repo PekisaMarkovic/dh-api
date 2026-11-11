@@ -1,3 +1,4 @@
+import { paginate } from 'nestjs-typeorm-paginate';
 import {
   BadRequestException,
   ConflictException,
@@ -8,6 +9,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { ILike, Repository } from 'typeorm';
 import { User } from '@/users/entities/user.entity';
 import { Customer } from '@/customers/entities/customer.entity';
+import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
+import { toLikePattern } from '@/common/helpers';
 import { CompaniesService } from '@/companies/services/companies.service';
 import {
   CreateCustomerDto,
@@ -23,12 +26,28 @@ export class CustomersService {
   ) {}
 
   /**
-   * Customers of the company of the user, sorted by name
+   * A page of the customers of the company of the user, sorted by name
    */
-  findAll(user: User) {
+  async findAll(user: User, query: PaginationQueryDto) {
+    const pattern = toLikePattern(query.search);
+
+    return paginate(this.customerRepository, query, {
+      where: {
+        companyId: user.companyId ?? -1,
+        ...(pattern && { name: ILike(pattern) }),
+      },
+      order: { name: 'ASC', customerId: 'ASC' },
+    });
+  }
+
+  /**
+   * Only id and name of all the customers, for the select of a proforma
+   */
+  findOptions(user: User) {
     return this.customerRepository.find({
+      select: { customerId: true, name: true },
       where: { companyId: user.companyId ?? -1 },
-      order: { name: 'ASC' },
+      order: { name: 'ASC', customerId: 'ASC' },
     });
   }
 

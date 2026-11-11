@@ -5,9 +5,11 @@ import {
   Param,
   ParseIntPipe,
   Post,
+  Query,
   StreamableFile,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { CurrentUser, Roles } from '@/auth/decorators';
 import { ClientRoleEnums } from '@/auth/enums';
 import { User } from '@/users/entities/user.entity';
@@ -21,9 +23,12 @@ export class ProformasController {
   constructor(private readonly proformasService: ProformasService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Proformas of your company, newest first' })
-  findAll(@CurrentUser() user: User) {
-    return this.proformasService.findAll(user);
+  @ApiOperation({
+    summary:
+      'A page of proformas, newest first, searched by number, buyer or warehouse',
+  })
+  findAll(@CurrentUser() user: User, @Query() query: PaginationQueryDto) {
+    return this.proformasService.findAll(user, query);
   }
 
   @Get(':proformaId')

@@ -1,10 +1,19 @@
-import { Body, Controller, Get, HttpStatus, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpStatus,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { CurrentUser, Public, Roles } from '@/auth/decorators';
 import { ClientRoleEnums } from '@/auth/enums';
 import { User } from '@/users/entities/user.entity';
@@ -31,9 +40,12 @@ export class InvitationsController {
 
   @Get()
   @Roles(ClientRoleEnums.SUPER_ADMIN, ClientRoleEnums.ADMIN)
-  @ApiOperation({ summary: 'Invitations of your company with their status' })
-  findAll(@CurrentUser() user: User) {
-    return this.invitationsService.findByCompany(user.companyId);
+  @ApiOperation({
+    summary:
+      'A page of the invitations of your company with their status, searched by email',
+  })
+  findAll(@CurrentUser() user: User, @Query() query: PaginationQueryDto) {
+    return this.invitationsService.findByCompany(user.companyId, query);
   }
 
   @Post(':invitationId/resend')

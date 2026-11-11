@@ -9,18 +9,13 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiQuery,
-  ApiTags,
-} from '@nestjs/swagger';
-import { parseOptionalInt } from '@/common/helpers';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, Roles } from '@/auth/decorators';
 import { ClientRoleEnums } from '@/auth/enums';
 import { User } from '@/users/entities/user.entity';
 import { DrinksService } from '@/drinks/services/drinks.service';
 import { CreateDrinkDto, UpdateDrinkDto } from '@/drinks/dto/drink.dto';
+import { FindDrinksDto } from '@/drinks/dto/find-drinks.dto';
 
 @Controller('drinks')
 @ApiTags('Drinks')
@@ -29,16 +24,12 @@ export class DrinksController {
   constructor(private readonly drinksService: DrinksService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get drinks, optionally of one warehouse' })
-  @ApiQuery({ name: 'warehouseId', required: false, type: Number })
-  findAll(
-    @CurrentUser() user: User,
-    @Query('warehouseId') warehouseIdRaw?: string,
-  ) {
-    return this.drinksService.findAll(
-      user,
-      parseOptionalInt(warehouseIdRaw, 'warehouseId'),
-    );
+  @ApiOperation({
+    summary:
+      'A page of drinks sorted by name, optionally of one warehouse and searched by name or code',
+  })
+  findAll(@CurrentUser() user: User, @Query() query: FindDrinksDto) {
+    return this.drinksService.findAll(user, query);
   }
 
   @Get(':drinkId')

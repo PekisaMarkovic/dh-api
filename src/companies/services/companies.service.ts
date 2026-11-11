@@ -1,3 +1,4 @@
+import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import {
   ConflictException,
   ForbiddenException,
@@ -36,6 +37,10 @@ export class CompaniesService {
     if (!isSuperAdmin && user.companyId !== companyId) {
       throw new ForbiddenException();
     }
+  }
+
+  async findUsersPage(companyId: number, query: PaginationQueryDto) {
+    return this.usersService.getUsersPageByCompany(companyId, query);
   }
 
   async findUsers(companyId: number) {

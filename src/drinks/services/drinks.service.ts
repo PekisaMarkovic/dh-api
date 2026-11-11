@@ -1,3 +1,4 @@
+import { paginate } from 'nestjs-typeorm-paginate';
 import {
   BadRequestException,
   ConflictException,
@@ -5,12 +6,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { ILike, Repository } from 'typeorm';
 import { User } from '@/users/entities/user.entity';
 import { Drink } from '@/drinks/entities/drink.entity';
 import { CompaniesService } from '@/companies/services/companies.service';
 import { WarehousesService } from '@/warehouses/services/warehouses.service';
 import { CreateDrinkDto, UpdateDrinkDto } from '@/drinks/dto/drink.dto';
+import { FindDrinksDto } from '@/drinks/dto/find-drinks.dto';
+import { toLikePattern } from '@/common/helpers';
 
 @Injectable()
 export class DrinksService {
@@ -21,17 +24,28 @@ export class DrinksService {
     private readonly companiesService: CompaniesService,
   ) {}
 
-  async findAll(user: User, warehouseId?: number) {
+  async findAll(user: User, query: FindDrinksDto) {
+    const { warehouseId } = query;
+
     if (warehouseId) {
       // checks the warehouse belongs to the user's company
       await this.warehousesService.findOne(warehouseId, user);
     }
 
-    return this.drinkRepository.find({
-      where: warehouseId
-        ? { warehouseId }
-        : { companyId: user.companyId ?? -1 },
-      order: { name: 'ASC' },
+    const base = warehouseId
+      ? { warehouseId }
+      : { companyId: user.companyId ?? -1 };
+    const pattern = toLikePattern(query.search);
+
+    return paginate(this.drinkRepository, query, {
+      // name OR code
+      where: pattern
+        ? [
+            { ...base, name: ILike(pattern) },
+            { ...base, code: ILike(pattern) },
+          ]
+        : base,
+      order: { name: 'ASC', drinkId: 'ASC' },
     });
   }
 

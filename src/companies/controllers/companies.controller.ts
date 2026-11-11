@@ -7,8 +7,10 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { CurrentUser, Roles } from '@/auth/decorators';
 import { ClientRoleEnums } from '@/auth/enums';
 import { User } from '@/users/entities/user.entity';
@@ -43,14 +45,18 @@ export class CompaniesController {
 
   @Get(':companyId/users')
   @Roles(ClientRoleEnums.SUPER_ADMIN, ClientRoleEnums.ADMIN)
-  @ApiOperation({ summary: 'Get users that belong to the company' })
+  @ApiOperation({
+    summary:
+      'A page of the users that belong to the company, searched by name or email',
+  })
   findUsers(
     @Param('companyId', ParseIntPipe) companyId: number,
     @CurrentUser() user: User,
+    @Query() query: PaginationQueryDto,
   ) {
     this.companiesService.assertCanAccess(user, companyId);
 
-    return this.companiesService.findUsers(companyId);
+    return this.companiesService.findUsersPage(companyId, query);
   }
 
   @Post()

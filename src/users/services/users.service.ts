@@ -1,3 +1,6 @@
+import { paginate } from 'nestjs-typeorm-paginate';
+import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
+import { toLikePattern } from '@/common/helpers';
 import {
   ConflictException,
   Injectable,
@@ -185,6 +188,29 @@ export class UsersService {
       .leftJoinAndSelect('user.roles', 'role')
       .orderBy('user.firstName', 'ASC')
       .getMany();
+  }
+
+  /**
+   * A page of the users of a company sorted by first name,
+   * searched by first name, last name or email
+   */
+  async getUsersPageByCompany(companyId: number, query: PaginationQueryDto) {
+    const pattern = toLikePattern(query.search);
+    const qb = this.userRepository
+      .createQueryBuilder('user')
+      .where('user.companyId = :companyId', { companyId })
+      .leftJoinAndSelect('user.roles', 'role')
+      .orderBy('user.firstName', 'ASC')
+      .addOrderBy('user.userId', 'ASC');
+
+    if (pattern) {
+      qb.andWhere(
+        "(user.firstName ILIKE :pattern OR user.lastName ILIKE :pattern OR user.email ILIKE :pattern OR CONCAT(user.firstName, ' ', user.lastName) ILIKE :pattern)",
+        { pattern },
+      );
+    }
+
+    return paginate(qb, query);
   }
 
   /**

@@ -7,8 +7,10 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { CurrentUser, Roles } from '@/auth/decorators';
 import { ClientRoleEnums } from '@/auth/enums';
 import { User } from '@/users/entities/user.entity';
@@ -25,9 +27,19 @@ export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Customers of your company, sorted by name' })
-  findAll(@CurrentUser() user: User) {
-    return this.customersService.findAll(user);
+  @ApiOperation({
+    summary: 'A page of customers sorted by name, optionally searched by name',
+  })
+  findAll(@CurrentUser() user: User, @Query() query: PaginationQueryDto) {
+    return this.customersService.findAll(user, query);
+  }
+
+  @Get('options')
+  @ApiOperation({
+    summary: 'Id and name of every customer, for a select (not paginated)',
+  })
+  findOptions(@CurrentUser() user: User) {
+    return this.customersService.findOptions(user);
   }
 
   @Get(':customerId')

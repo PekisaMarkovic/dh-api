@@ -1,3 +1,6 @@
+import { paginate, Pagination } from 'nestjs-typeorm-paginate';
+import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
+import { toLikePattern } from '@/common/helpers';
 import {
   BadRequestException,
   ConflictException,
@@ -5,7 +8,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { ILike, IsNull, Repository } from 'typeorm';
 import { Invitation } from '@/invitations/entities/invitation.entity';
 import { MailerService } from '@/mailer/services/mailer.service';
 import { UsersService } from '@/users/services/users.service';
@@ -90,15 +93,20 @@ export class InvitationsService {
   }
 
   /**
-   * All invitations of a company with a computed status
+   * A page of the invitations of a company with a computed status, newest first
    */
-  async findByCompany(companyId: number) {
-    const invitations = await this.invitationRepository.find({
-      where: { companyId },
-      order: { createdAt: 'DESC' },
+  async findByCompany(companyId: number, query: PaginationQueryDto) {
+    const pattern = toLikePattern(query.search);
+
+    const page = await paginate(this.invitationRepository, query, {
+      where: { companyId, ...(pattern && { email: ILike(pattern) }) },
+      order: { createdAt: 'DESC', invitationId: 'ASC' },
     });
 
-    return invitations.map((invitation) => this.toListItem(invitation));
+    return new Pagination(
+      page.items.map((invitation) => this.toListItem(invitation)),
+      page.meta,
+    );
   }
 
   /**
