@@ -46,6 +46,8 @@ type TextOptions = {
   size?: number;
   bold?: boolean;
   underline?: boolean;
+  // how heavy the letters are, see TEXT_WEIGHT
+  weight?: number;
 };
 
 // The layout is measured on a picture of the original document (919 x 1300 px),
@@ -56,7 +58,9 @@ const pt = (px: number) => px / SCALE;
 // thickness of the lines (points) and the extra weight of the letters (part of the font size)
 const LINE_WIDTH = 1.1;
 const BOX_LINE_WIDTH = 0.85;
-const TEXT_WEIGHT = 0.011;
+// a bit heavier than the original, the drinks in the table are lighter (ROW_TEXT_WEIGHT)
+const TEXT_WEIGHT = 0.032;
+const ROW_TEXT_WEIGHT = 0;
 
 // the table and its blue band start at the left margin of the text and end at the right edge
 const TABLE_LEFT = 48;
@@ -113,6 +117,14 @@ const printTime = (value: Date) =>
   `${pad(value.getDate())}. ${pad(value.getMonth() + 1)}. ${value.getFullYear()} ` +
   `${pad(value.getHours())}:${pad(value.getMinutes())}:${pad(value.getSeconds())}`;
 
+// Helvetica has no č, ć, đ, š, ž: they are printed as c, c, dj, s, z (like in the original document)
+const plainLetters = (value: string) =>
+  value
+    .replace(/đ/g, 'dj')
+    .replace(/Đ/g, 'Dj')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
 const toCents = (value: number) => Math.round(value * 100);
 
 @Injectable()
@@ -120,7 +132,7 @@ export class PdfService {
   /**
    * Finds a font that is shipped with the api. Works for ts-node (src),
    * for the webpack build (dist) and when started from the project root.
-   * Inter is used because the built in PDF fonts miss letters like č, ć, đ.
+   * Arial is the font of the original document.
    */
   private fontPath(name: string) {
     const candidates = [
@@ -156,15 +168,17 @@ export class PdfService {
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
-      doc.registerFont('regular', this.fontPath('Inter-Regular.ttf'));
-      doc.registerFont('bold', this.fontPath('Inter-Bold.ttf'));
+      // Helvetica is the font of the original document, it is built into every PDF (no file needed).
+      // It has no č, ć, đ, those letters are not printed.
+      doc.registerFont('regular', 'Helvetica');
+      doc.registerFont('bold', 'Helvetica-Bold');
 
       /**
        * Prints a text. x is the left edge, the right edge or the center (by align),
        * y is the vertical center of the text. Both are in picture pixels.
        */
       const text = (
-        value: string,
+        rawValue: string,
         x: number,
         y: number,
         {
@@ -172,6 +186,7 @@ export class PdfService {
           size = 9,
           bold = false,
           underline = false,
+          weight = TEXT_WEIGHT,
         }: TextOptions = {},
       ) => {
         doc
@@ -179,8 +194,9 @@ export class PdfService {
           .fontSize(size)
           .fillColor('#000000')
           .strokeColor('#000000')
-          .lineWidth(size * TEXT_WEIGHT);
+          .lineWidth(size * weight);
 
+        const value = plainLetters(rawValue);
         const width = doc.widthOfString(value);
         const left =
           align === 'left'
@@ -362,18 +378,24 @@ export class PdfService {
       };
 
       const tableRow = (row: (typeof rows)[number], y: number) => {
-        const size = 6.8;
+        const size = 6.6;
+        const weight = ROW_TEXT_WEIGHT;
         const right = (value: string, x: number) =>
-          text(value, x, y, { size, align: 'right' });
+          text(value, x, y, { size, align: 'right', weight });
 
         text(String(row.number), COLUMN.rowNumber, y, {
           size,
           align: 'center',
+          weight,
         });
         right(row.code, COLUMN.code);
         // the names of the articles are printed in capital letters
-        text(row.name.toUpperCase(), COLUMN.name, y, { size });
-        text(mock.unitOfMeasure, COLUMN.unit, y, { size, align: 'center' });
+        text(row.name.toUpperCase(), COLUMN.name, y, { size, weight });
+        text(mock.unitOfMeasure, COLUMN.unit, y, {
+          size,
+          align: 'center',
+          weight,
+        });
         right(row.quantity.toFixed(2), COLUMN.quantity);
         right(moneyThreeDecimals(row.netPrice), COLUMN.price);
         right(money(row.netBeforeCents / 100), COLUMN.amount);
