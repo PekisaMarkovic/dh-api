@@ -26,23 +26,24 @@ export const lineTotalCents = (
 };
 
 /**
- * VAT of an amount without VAT (in cents), rounded to cents.
+ * The VAT inside an amount WITH VAT (in cents), rounded to cents.
  * It is calculated for every line, so the lines add up to the totals.
  */
-export const vatCents = (netCents: number, ratePercent = VAT_RATE_PERCENT) =>
-  Math.round((netCents * ratePercent) / 100);
+export const vatCents = (grossCents: number, ratePercent = VAT_RATE_PERCENT) =>
+  Math.round((grossCents * ratePercent) / (100 + ratePercent));
 
 /**
- * The VAT and the amount to pay of a proforma, out of the amounts of its lines (without VAT)
+ * The VAT and the amount to pay of a proforma, out of the amounts of its lines (with VAT).
+ * The prices are entered with VAT, so the amount to pay is the sum of the lines.
  */
 export const vatSummary = (lineTotals: number[]) => {
-  const netCents = lineTotals.reduce((sum, line) => sum + toCents(line), 0);
+  const grossCents = lineTotals.reduce((sum, line) => sum + toCents(line), 0);
   const vat = lineTotals.reduce(
     (sum, line) => sum + vatCents(toCents(line)),
     0,
   );
 
-  return { vatAmount: vat / 100, totalWithVat: (netCents + vat) / 100 };
+  return { vatAmount: vat / 100, totalWithVat: grossCents / 100 };
 };
 
 const toCents = (value: number) => Math.round(value * 100);

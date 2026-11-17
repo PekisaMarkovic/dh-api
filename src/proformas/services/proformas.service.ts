@@ -46,7 +46,7 @@ export class ProformasService {
 
   /**
    * Create a proforma from drinks of ONE warehouse.
-   * The quantity can not be higher than the stock, and it is taken off the stock.
+   * The quantity is taken off the stock, the stock can go below zero (it is shown in red).
    */
   async create(dto: CreateProformaDto, user: User) {
     // 404 / 403 if the warehouse is missing or belongs to another company
@@ -85,12 +85,6 @@ export class ProformasService {
           if (!drink) {
             throw new BadRequestException(
               `Drink ${line.drinkId} is not in this warehouse`,
-            );
-          }
-
-          if (line.quantity > drink.quantity) {
-            throw new BadRequestException(
-              `Not enough "${drink.name}" in stock, available: ${drink.quantity}`,
             );
           }
 

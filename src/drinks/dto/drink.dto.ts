@@ -34,9 +34,11 @@ export class CreateDrinkDto {
   @Max(99999999)
   price: number;
 
-  @ApiProperty({ example: 24 })
+  @ApiProperty({
+    example: 24,
+    description: 'Units in stock, can be below zero after a proforma',
+  })
   @IsInt()
-  @Min(0)
   quantity: number;
 
   @ApiProperty({

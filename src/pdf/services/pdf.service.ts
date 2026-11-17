@@ -241,28 +241,28 @@ export class PdfService {
       };
 
       // ---- the amounts -------------------------------------------------------------
-      // the prices of the drinks are WITHOUT VAT, the VAT is added on top of them
+      // the prices of the drinks are WITH VAT, the VAT is calculated out of them
       const vatFactor = 1 + VAT_RATE_PERCENT / 100;
 
       const rows = data.items.map((item, index) => {
-        // the amount of the line before the discount ...
-        const netBeforeCents = lineTotalCents(item.unitPrice, item.quantity);
-        // ... and after it (the discount was already taken off lineTotal), then the VAT on top
-        const netCents = toCents(item.lineTotal);
-        const lineVatCents = vatCents(netCents);
+        // the amount of the line (with VAT) before the discount ...
+        const grossBeforeCents = lineTotalCents(item.unitPrice, item.quantity);
+        // ... and after it (the discount was already taken off lineTotal)
+        const grossCents = toCents(item.lineTotal);
+        const lineVatCents = vatCents(grossCents);
 
         return {
           number: index + 1,
           code: item.code ?? '',
           name: item.name,
           quantity: item.quantity,
-          netPrice: item.unitPrice,
-          netBeforeCents,
+          netPrice: item.unitPrice / vatFactor,
+          netBeforeCents: grossBeforeCents - vatCents(grossBeforeCents),
           discountPercent: item.discountPercent,
-          netCents,
+          netCents: grossCents - lineVatCents,
           vatCents: lineVatCents,
-          grossPrice: item.unitPrice * vatFactor,
-          grossCents: netCents + lineVatCents,
+          grossPrice: item.unitPrice,
+          grossCents,
         };
       });
 
