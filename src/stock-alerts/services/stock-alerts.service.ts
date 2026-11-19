@@ -17,7 +17,7 @@ export type StockDigestResult = {
 };
 
 /**
- * Twice a day (8:00 and 15:00, Belgrade time) every employee gets one email with
+ * Every day at 8:00 (Belgrade time) every employee gets one email with
  * everything that is low right now: what has to be bought again (red) and what only
  * has a warning (orange). Nothing is sent when nothing is low.
  */
@@ -35,7 +35,7 @@ export class StockAlertsService {
     private readonly configService: ConfigService,
   ) {}
 
-  @Cron('0 8,15 * * *', {
+  @Cron('0 8 * * *', {
     name: 'stock-digest',
     timeZone: 'Europe/Belgrade',
   })
@@ -44,23 +44,15 @@ export class StockAlertsService {
       return;
     }
 
+    this.logger.log('Stock digest started');
     await this.sendDigestToAllCompanies();
   }
 
   /**
-   * Runs on the server of production. Locally it would send real emails to the people
-   * in the database, so there it is off unless STOCK_DIGEST=true.
-   * STOCK_DIGEST=false turns it off everywhere.
+   * Runs on the server of production only. Locally it would send real emails
+   * to the people in the database.
    */
   private isScheduleEnabled() {
-    const setting = this.configService
-      .get<string>('STOCK_DIGEST')
-      ?.trim()
-      .toLowerCase();
-
-    if (setting === 'true') return true;
-    if (setting === 'false') return false;
-
     return (
       this.configService.get<string>('ENVIROMENT')?.trim().toLowerCase() ===
       'production'

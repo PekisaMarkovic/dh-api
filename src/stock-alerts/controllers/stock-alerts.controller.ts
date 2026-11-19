@@ -15,7 +15,7 @@ export class StockAlertsController {
   @Roles(ClientRoleEnums.SUPER_ADMIN, ClientRoleEnums.ADMIN)
   @ApiOperation({
     summary:
-      'Send the overview of the low stock to all employees of your company now (the same email that goes out at 8:00 and 15:00)',
+      'Send the overview of the low stock to all employees of your company now (the same email that goes out at 8:00)',
   })
   sendNow(@CurrentUser() user: User) {
     if (!user.companyId) {

@@ -47,7 +47,7 @@ export const STOCK_DIGEST_TEXTS: Record<LanguageEnums, StockDigestTexts> = {
     button: 'Otvori pića',
     fallback: 'Ako dugme ne radi, otvorite ovaj link:',
     footer: (part) =>
-      `Ovo je ${part.toLowerCase()} pregled, šalje se svakog dana u 8:00 i 15:00.`,
+      `Ovo je ${part.toLowerCase()} pregled, šalje se svakog dana u 8:00.`,
   },
   [LanguageEnums.EN]: {
     title: 'Stock overview',
@@ -67,7 +67,7 @@ export const STOCK_DIGEST_TEXTS: Record<LanguageEnums, StockDigestTexts> = {
     button: 'Open drinks',
     fallback: 'If the button does not work, open this link:',
     footer: (part) =>
-      `This is the ${part.toLowerCase()} overview, it is sent every day at 8:00 and 15:00.`,
+      `This is the ${part.toLowerCase()} overview, it is sent every day at 8:00.`,
   },
 };
 
