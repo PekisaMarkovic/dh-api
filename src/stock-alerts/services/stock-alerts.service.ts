@@ -35,7 +35,8 @@ export class StockAlertsService {
     private readonly configService: ConfigService,
   ) {}
 
-  @Cron('0 8 * * *', {
+  // TODO: TEMPORARY test time (12:18), put it back to '0 8 * * *' (every day at 8:00)
+  @Cron('18 12 * * *', {
     name: 'stock-digest',
     timeZone: 'Europe/Belgrade',
   })
