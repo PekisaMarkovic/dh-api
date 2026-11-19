@@ -13,7 +13,7 @@ Built with NestJS, TypeORM and PostgreSQL. The frontend lives in the `dh-dashboa
 - **Proformas.** Pick a warehouse, pick drinks and quantities, create the proforma. The drinks are taken off the stock. An admin can return them to the stock if something goes wrong. A proforma can be downloaded as a PDF.
 - **Invite-only registration.** Nobody can sign up on their own. An admin invites an email, the person gets a link and finishes the registration.
 - **Users and roles.** Three roles: `super.admin`, `admin`, `user`. Every user keeps their own language (`en` or `sr`).
-- **Emails** go out through SMTP (a Gmail account with an app password).
+- **Emails** go out through Brevo.
 
 ## Quick start
 
@@ -45,14 +45,15 @@ On the first start the tables are created and the first data is seeded (see belo
 | `JWT_EXPIRE` / `JWT_REFRESH_EXPIRE` | Life of the access token (`60m`) and of the refresh token (`180m`). |
 | `APP_DASHBOARD` | Address of the dashboard. Used in the links of the emails and as the only origin CORS allows. Local: `http://localhost:4300`. Production: the real domain, e.g. `https://app.example.com`. |
 | `APP_NAME` | Name of the app. |
-| `SMTP_HOST` `SMTP_PORT` `SMTP_USER` `SMTP_PASSWORD` | SMTP server. For Gmail: `smtp.gmail.com`, `587`, the Gmail address and an app password (needs 2-step verification). |
-| `MAIL_FROM_EMAIL` | Sender address. For Gmail it has to be the same as `SMTP_USER`. |
+| `BREVO_API_KEY` | Brevo API key (SMTP & API → API keys). |
+| `MAIL_FROM_EMAIL` | Sender address. It has to be a verified sender in Brevo. |
 | `MAIL_FROM_NAME` | Sender name, `DH`. |
+| `BREVO_SANDBOX` | `true`: Brevo only checks the request and delivers nothing. `false`: really sends. |
 | `SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD` | The first super admin, created by the seeder. Change the password. |
 
-**Production rules.** With `ENVIROMENT=production` the API will not start if `APP_DASHBOARD` is empty or points to `localhost`, and it will not send emails without the SMTP settings.
+**Production rules.** With `ENVIROMENT=production` the API will not start if `APP_DASHBOARD` is empty or points to `localhost`, and it will not send emails without `BREVO_API_KEY`.
 
-**Local without SMTP.** Leave the SMTP settings empty. Invitations still work: nothing is sent, but the invitation link is printed in the terminal, open it by hand.
+**Local without Brevo.** Leave `BREVO_API_KEY` empty. Invitations still work: nothing is sent, but the invitation link is printed in the terminal, open it by hand.
 
 ## What happens on start (seeder)
 
@@ -113,7 +114,7 @@ Details: inviting the same email again replaces the pending invitation, an email
 
 Two services on purpose:
 
-- `SmtpService` only sends through SMTP (nodemailer).
+- `BrevoService` only talks to the Brevo API (HTTP, no extra library).
 - `MailerService` knows what the emails are: template, subject, data. Template: `src/mailer/templates/first-time-register.html`. It must use **inline styles only**, because the placeholder replacement (`{link}`, `{valid_days}`) would eat the braces of a `<style>` block.
 
 ## Endpoints
@@ -142,7 +143,7 @@ src/
   drinks/          drinks
   proformas/       proformas, stock, return
   pdf/             PDF generator + fonts
-  mailer/          SmtpService, MailerService, email templates
+  mailer/          BrevoService, MailerService, email templates
   seeder/          first data on start
   validation-token/  refresh tokens
   common/          shared: audit columns, helpers (money, urls, query), enums

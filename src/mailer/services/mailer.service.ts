@@ -10,7 +10,7 @@ import {
   StockDigestItem,
   StockDigestMailDto,
 } from '@/mailer/dto';
-import { SmtpService } from '@/mailer/services/smtp.service';
+import { BrevoService } from '@/mailer/services/brevo.service';
 
 // the names of drinks and warehouses are typed by people, so they can not go into the html as they are
 const escapeHtml = (value: string) =>
@@ -22,7 +22,7 @@ const escapeHtml = (value: string) =>
 
 /**
  * What the emails of the app are: which template, which subject, which data.
- * The sending itself is done by SmtpService.
+ * The sending itself is done by BrevoService.
  */
 @Injectable()
 export class MailerService {
@@ -30,7 +30,7 @@ export class MailerService {
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly smtpService: SmtpService,
+    private readonly brevoService: BrevoService,
   ) {}
 
   private replacePlaceholders(
@@ -75,7 +75,7 @@ export class MailerService {
       this.configService.get<string>('ENVIROMENT')?.trim().toLowerCase() ===
       'production';
 
-    return this.smtpService.send({
+    return this.brevoService.send({
       to: recipients,
       subject: isProduction ? subject : `[LOCAL] ${subject}`,
       html,

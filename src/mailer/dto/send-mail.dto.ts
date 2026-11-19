@@ -8,14 +8,14 @@ export interface SendMailDto {
   data: Record<string, string>;
 }
 
-export interface SendOptions {
+export interface BrevoSendOptions {
   to: MailAddress[];
   subject: string;
   html: string;
 }
 
-export interface SendResult {
-  // true when nothing was sent because SMTP is not set up (development only)
+export interface BrevoSendResult {
+  // true when nothing was sent because no API key is configured (development only)
   skipped: boolean;
   messageId?: string;
 }
