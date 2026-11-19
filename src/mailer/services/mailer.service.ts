@@ -10,7 +10,6 @@ import {
   StockDigestItem,
   StockDigestMailDto,
 } from '@/mailer/dto';
-import { BrevoService } from '@/mailer/services/brevo.service';
 import { SmtpService } from '@/mailer/services/smtp.service';
 
 // the names of drinks and warehouses are typed by people, so they can not go into the html as they are
@@ -23,7 +22,7 @@ const escapeHtml = (value: string) =>
 
 /**
  * What the emails of the app are: which template, which subject, which data.
- * The sending itself is done by BrevoService.
+ * The sending itself is done by SmtpService.
  */
 @Injectable()
 export class MailerService {
@@ -31,7 +30,6 @@ export class MailerService {
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly brevoService: BrevoService,
     private readonly smtpService: SmtpService,
   ) {}
 
@@ -72,17 +70,12 @@ export class MailerService {
     const htmlString = await this.readHtmlTemplate(template);
     const html = this.replacePlaceholders(htmlString, data);
 
-    // SMTP is used when it is set up (SMTP_HOST), otherwise the Brevo API
-    const sender = this.smtpService.isConfigured()
-      ? this.smtpService
-      : this.brevoService;
-
     // outside of production the subject says so, so a test email is never taken for a real one
     const isProduction =
       this.configService.get<string>('ENVIROMENT')?.trim().toLowerCase() ===
       'production';
 
-    return sender.send({
+    return this.smtpService.send({
       to: recipients,
       subject: isProduction ? subject : `[LOCAL] ${subject}`,
       html,

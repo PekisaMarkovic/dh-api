@@ -1,17 +1,17 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createTransport } from 'nodemailer';
-import { BrevoSendOptions, BrevoSendResult } from '@/mailer/dto';
+import { SendOptions, SendResult } from '@/mailer/dto';
 
 /**
- * Sends an email through any SMTP server (Brevo, Gmail, your own).
+ * Sends an email through SMTP, e.g. a Gmail account with an app password.
  *
  * Environment variables:
- *   SMTP_HOST        - e.g. smtp-relay.brevo.com
+ *   SMTP_HOST        - e.g. smtp.gmail.com
  *   SMTP_PORT        - 587 (STARTTLS, default) or 465 (SSL)
- *   SMTP_USER        - the SMTP login (for Brevo: SMTP & API -> SMTP, e.g. 8f3a1b001@smtp-brevo.com)
- *   SMTP_PASSWORD    - the SMTP key / password
- *   MAIL_FROM_EMAIL  - sender address, it has to be a verified sender at the provider
+ *   SMTP_USER        - the SMTP login, e.g. the Gmail address
+ *   SMTP_PASSWORD    - the password (for Gmail an app password, 16 letters)
+ *   MAIL_FROM_EMAIL  - sender address, for Gmail it has to be the same as SMTP_USER
  *   MAIL_FROM_NAME   - sender name, defaults to APP_NAME
  */
 @Injectable()
@@ -20,24 +20,26 @@ export class SmtpService {
 
   constructor(private readonly configService: ConfigService) {}
 
-  /** true when SMTP is set up, so it is the one that sends */
-  isConfigured() {
-    return !!this.configService.get<string>('SMTP_HOST');
-  }
-
-  async send({
-    to,
-    subject,
-    html,
-  }: BrevoSendOptions): Promise<BrevoSendResult> {
+  async send({ to, subject, html }: SendOptions): Promise<SendResult> {
     const host = this.configService.get<string>('SMTP_HOST');
     const port = Number(this.configService.get('SMTP_PORT') || 587);
     const user = this.configService.get<string>('SMTP_USER');
     const pass = this.configService.get<string>('SMTP_PASSWORD');
     const senderEmail = this.configService.get<string>('MAIL_FROM_EMAIL');
 
-    if (!user || !pass) {
-      throw new Error('SMTP_USER and SMTP_PASSWORD have to be set');
+    if (!host || !user || !pass) {
+      // locally the app works without SMTP, in production a missing setup must not go unnoticed
+      if (this.configService.get('ENVIROMENT') === 'production') {
+        throw new Error(
+          'SMTP_HOST, SMTP_USER and SMTP_PASSWORD have to be set',
+        );
+      }
+
+      this.logger.warn(
+        `SMTP is not set up, email "${subject}" to ${to.map((t) => t.address).join(', ')} was NOT sent`,
+      );
+
+      return { skipped: true };
     }
 
     if (!senderEmail) {
