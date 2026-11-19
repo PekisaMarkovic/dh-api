@@ -77,7 +77,16 @@ export class MailerService {
       ? this.smtpService
       : this.brevoService;
 
-    return sender.send({ to: recipients, subject, html });
+    // outside of production the subject says so, so a test email is never taken for a real one
+    const isProduction =
+      this.configService.get<string>('ENVIROMENT')?.trim().toLowerCase() ===
+      'production';
+
+    return sender.send({
+      to: recipients,
+      subject: isProduction ? subject : `[LOCAL] ${subject}`,
+      html,
+    });
   }
 
   /**
