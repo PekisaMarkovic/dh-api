@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   ParseIntPipe,
   Post,
   Query,
@@ -14,7 +15,10 @@ import { CurrentUser, Roles } from '@/auth/decorators';
 import { ClientRoleEnums } from '@/auth/enums';
 import { User } from '@/users/entities/user.entity';
 import { ProformasService } from '@/proformas/services/proformas.service';
-import { CreateProformaDto } from '@/proformas/dto/proforma.dto';
+import {
+  CreateProformaDto,
+  UpdateProformaDto,
+} from '@/proformas/dto/proforma.dto';
 
 @Controller('proformas')
 @ApiTags('Proformas')
@@ -55,6 +59,20 @@ export class ProformasController {
       type: 'application/pdf',
       disposition: `attachment; filename="${filename}"`,
     });
+  }
+
+  @Patch(':proformaId')
+  @Roles(ClientRoleEnums.SUPER_ADMIN, ClientRoleEnums.ADMIN)
+  @ApiOperation({
+    summary:
+      'Change the buyer and the items of an active proforma, the stock is corrected',
+  })
+  update(
+    @Param('proformaId', ParseIntPipe) proformaId: number,
+    @Body() dto: UpdateProformaDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.proformasService.update(proformaId, dto, user);
   }
 
   @Post(':proformaId/return')

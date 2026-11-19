@@ -62,3 +62,25 @@ export class CreateProformaDto {
   @Type(() => CreateProformaItemDto)
   items: CreateProformaItemDto[];
 }
+
+export class UpdateProformaDto {
+  @ApiProperty({
+    required: false,
+    nullable: true,
+    description:
+      'The buyer. Left out = unchanged, null = no buyer. The warehouse can not be changed',
+  })
+  @IsOptional()
+  @IsInt()
+  customerId?: number | null;
+
+  @ApiProperty({
+    type: [CreateProformaItemDto],
+    description: 'All the items of the proforma, they replace the old ones',
+  })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => CreateProformaItemDto)
+  items: CreateProformaItemDto[];
+}

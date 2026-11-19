@@ -6,13 +6,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ILike, Repository } from 'typeorm';
+import { ILike, Raw, Repository } from 'typeorm';
 import { User } from '@/users/entities/user.entity';
 import { Drink } from '@/drinks/entities/drink.entity';
 import { CompaniesService } from '@/companies/services/companies.service';
 import { WarehousesService } from '@/warehouses/services/warehouses.service';
 import { CreateDrinkDto, UpdateDrinkDto } from '@/drinks/dto/drink.dto';
-import { FindDrinksDto } from '@/drinks/dto/find-drinks.dto';
+import { DrinkStockLevel, FindDrinksDto } from '@/drinks/dto/find-drinks.dto';
 import { toLikePattern } from '@/common/helpers';
 
 @Injectable()
@@ -32,9 +32,10 @@ export class DrinksService {
       await this.warehousesService.findOne(warehouseId, user);
     }
 
-    const base = warehouseId
-      ? { warehouseId }
-      : { companyId: user.companyId ?? -1 };
+    const base = {
+      ...(warehouseId ? { warehouseId } : { companyId: user.companyId ?? -1 }),
+      ...this.stockLevelWhere(query.stockLevel),
+    };
     const pattern = toLikePattern(query.search);
 
     return paginate(this.drinkRepository, query, {
@@ -47,6 +48,31 @@ export class DrinksService {
         : base,
       order: { name: 'ASC', drinkId: 'ASC' },
     });
+  }
+
+  /**
+   * The same levels as the dashboard shows: below zero is always red,
+   * a level of 0 means that level is off.
+   */
+  private stockLevelWhere(level?: DrinkStockLevel) {
+    switch (level) {
+      case DrinkStockLevel.CRITICAL:
+        return {
+          quantity: Raw(
+            (q) =>
+              `(${q} < 0 OR ("critical_quantity" > 0 AND ${q} < "critical_quantity"))`,
+          ),
+        };
+      case DrinkStockLevel.WARNING:
+        return {
+          quantity: Raw(
+            (q) =>
+              `(${q} >= 0 AND "warning_quantity" > 0 AND ${q} < "warning_quantity" AND ("critical_quantity" = 0 OR ${q} >= "critical_quantity"))`,
+          ),
+        };
+      default:
+        return {};
+    }
   }
 
   async findOne(drinkId: number, user?: User) {

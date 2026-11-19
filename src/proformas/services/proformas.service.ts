@@ -20,7 +20,11 @@ import { ProformaStatusEnums } from '@/proformas/enums/proforma-status.enum';
 import { PdfService } from '@/pdf/services/pdf.service';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { toLikePattern } from '@/common/helpers';
-import { CreateProformaDto } from '@/proformas/dto/proforma.dto';
+import {
+  CreateProformaDto,
+  CreateProformaItemDto,
+  UpdateProformaDto,
+} from '@/proformas/dto/proforma.dto';
 import { lineTotalCents, vatSummary } from '@/common/helpers/money.helpers';
 
 // money is calculated in cents so 0.1 + 0.2 style errors never reach the total
@@ -78,36 +82,7 @@ export class ProformasService {
           drinks.map((drink) => [drink.drinkId, drink]),
         );
 
-        let totalCents = 0;
-        const items = dto.items.map((line) => {
-          const drink = drinkById.get(line.drinkId);
-
-          if (!drink) {
-            throw new BadRequestException(
-              `Drink ${line.drinkId} is not in this warehouse`,
-            );
-          }
-
-          // the price can be changed for this proforma, the drink itself keeps its price
-          const unitPrice = line.unitPrice ?? drink.price;
-          const discountPercent = line.discountPercent ?? 0;
-          const lineCents = lineTotalCents(
-            unitPrice,
-            line.quantity,
-            discountPercent,
-          );
-          totalCents += lineCents;
-
-          return Object.assign(new ProformaItem(), {
-            drinkId: drink.drinkId,
-            code: drink.code,
-            name: drink.name,
-            unitPrice,
-            quantity: line.quantity,
-            discountPercent,
-            lineTotal: fromCents(lineCents),
-          });
-        });
+        const { items, totalCents } = this.buildItems(dto.items, drinkById);
 
         for (const line of dto.items) {
           await manager.decrement(
@@ -134,6 +109,145 @@ export class ProformasService {
     );
 
     return this.findOne(saved.proformaId, user);
+  }
+
+  /**
+   * The lines of a proforma, name and code are copied from the drink and the price
+   * can be changed for this proforma only (the drink itself keeps its price).
+   * @throws BadRequestException if a drink is not in the warehouse
+   */
+  private buildItems(
+    lines: CreateProformaItemDto[],
+    drinkById: Map<number, Drink>,
+  ) {
+    let totalCents = 0;
+    const items = lines.map((line) => {
+      const drink = drinkById.get(line.drinkId);
+
+      if (!drink) {
+        throw new BadRequestException(
+          `Drink ${line.drinkId} is not in this warehouse`,
+        );
+      }
+
+      const unitPrice = line.unitPrice ?? drink.price;
+      const discountPercent = line.discountPercent ?? 0;
+      const lineCents = lineTotalCents(
+        unitPrice,
+        line.quantity,
+        discountPercent,
+      );
+      totalCents += lineCents;
+
+      return Object.assign(new ProformaItem(), {
+        drinkId: drink.drinkId,
+        code: drink.code,
+        name: drink.name,
+        unitPrice,
+        quantity: line.quantity,
+        discountPercent,
+        lineTotal: fromCents(lineCents),
+      });
+    });
+
+    return { items, totalCents };
+  }
+
+  /**
+   * Change the buyer and the items of a proforma that is still active.
+   * The stock is corrected by the difference to the old items, in one transaction.
+   */
+  async update(proformaId: number, dto: UpdateProformaDto, user: User) {
+    const drinkIds = dto.items.map((item) => item.drinkId);
+
+    if (new Set(drinkIds).size !== drinkIds.length) {
+      throw new BadRequestException('Each drink can be added only once');
+    }
+
+    // 404 / 403 if the customer is missing or belongs to another company
+    const customer = dto.customerId
+      ? await this.customersService.findOne(dto.customerId, user)
+      : null;
+
+    await this.proformaRepository.manager.transaction(async (manager) => {
+      // lock the proforma so it can not be changed and returned at the same time
+      const proforma = await manager.findOne(Proforma, {
+        where: { proformaId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!proforma) {
+        throw new NotFoundException('Proforma not found');
+      }
+
+      this.companiesService.assertCanAccess(user, proforma.companyId);
+
+      if (proforma.status !== ProformaStatusEnums.ACTIVE) {
+        throw new ConflictException('Only an active proforma can be changed');
+      }
+
+      const oldItems = await manager.find(ProformaItem, {
+        where: { proformaId },
+      });
+
+      // lock the old and the new drinks, in the same order as create() does
+      const lockIds = [
+        ...new Set([
+          ...drinkIds,
+          ...oldItems.flatMap((item) =>
+            item.drinkId === null ? [] : [item.drinkId],
+          ),
+        ]),
+      ];
+      const drinks = await manager.find(Drink, {
+        where: { drinkId: In(lockIds), warehouseId: proforma.warehouseId },
+        order: { drinkId: 'ASC' },
+        lock: { mode: 'pessimistic_write' },
+      });
+      const drinkById = new Map(drinks.map((drink) => [drink.drinkId, drink]));
+
+      const { items, totalCents } = this.buildItems(dto.items, drinkById);
+
+      // stock change per drink: what was sold before minus what is sold now
+      const delta = new Map<number, number>();
+
+      for (const item of oldItems) {
+        if (item.drinkId === null) continue;
+        delta.set(item.drinkId, (delta.get(item.drinkId) ?? 0) + item.quantity);
+      }
+
+      for (const line of dto.items) {
+        delta.set(line.drinkId, (delta.get(line.drinkId) ?? 0) - line.quantity);
+      }
+
+      for (const [drinkId, change] of delta) {
+        // a drink that was deleted in the meantime has nothing to correct
+        if (change === 0 || !drinkById.has(drinkId)) continue;
+
+        await manager.increment(Drink, { drinkId }, 'quantity', change);
+      }
+
+      await manager.delete(ProformaItem, { proformaId });
+      await manager.save(
+        items.map((item) => Object.assign(item, { proformaId })),
+      );
+
+      const customerPatch =
+        dto.customerId === undefined
+          ? {}
+          : {
+              customerId: customer?.customerId ?? null,
+              customerName: customer?.name ?? null,
+            };
+
+      await manager.update(
+        Proforma,
+        { proformaId },
+        { ...customerPatch, total: fromCents(totalCents) },
+      );
+    });
+
+    return this.findOne(proformaId, user);
   }
 
   /**
