@@ -314,7 +314,42 @@ export class PdfService {
         box(867, 71, 867, 130);
         box(582, 71, 582, 130);
         if (data.customerName) {
-          text(data.customerName, 588, 103, { size: 9.4 });
+          // a long name is wrapped into the frame instead of running out of it
+          const nameSize = 9.4;
+          const lineHeight = 14;
+          const maxLines = 4;
+          doc.font('regular').fontSize(nameSize);
+          const maxWidth = pt(867 - 588 - 6);
+          const fits = (value: string) =>
+            doc.widthOfString(plainLetters(value)) <= maxWidth;
+
+          const lines: string[] = [];
+          let current = '';
+          for (const word of data.customerName.split(/\s+/).filter(Boolean)) {
+            const candidate = current ? `${current} ${word}` : word;
+            if (fits(candidate)) {
+              current = candidate;
+              continue;
+            }
+            if (current) lines.push(current);
+            // a single word wider than the frame is cut by characters
+            let rest = word;
+            while (!fits(rest)) {
+              let n = rest.length - 1;
+              while (n > 1 && !fits(rest.slice(0, n))) n--;
+              lines.push(rest.slice(0, n));
+              rest = rest.slice(n);
+            }
+            current = rest;
+          }
+          if (current) lines.push(current);
+
+          const shown = lines.slice(0, maxLines);
+          // the lines are centered vertically in the frame (71 - 130)
+          const firstY = 100.5 - ((shown.length - 1) * lineHeight) / 2;
+          shown.forEach((value, i) =>
+            text(value, 588, firstY + i * lineHeight, { size: nameSize }),
+          );
         }
 
         text(`Predracun -  ${data.documentNumber}`, 463, 342, {
