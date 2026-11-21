@@ -16,6 +16,7 @@
     "module": "CommonJS",
     "incremental": true,
     "skipLibCheck": true,
+    "types": ["node", "jest", "multer"],
     "strictNullChecks": false,
     "noImplicitAny": false,
     "strictBindCallApply": false,
