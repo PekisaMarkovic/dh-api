@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { User } from '@/users/entities/user.entity';
 import { Warehouse } from '@/warehouses/entities/warehouse.entity';
 import { Drink } from '@/drinks/entities/drink.entity';
@@ -35,7 +35,7 @@ export class WarehousesService {
 
     const warehouses = await this.warehouseRepository.find({
       where: companyId ? { companyId } : {},
-      order: { name: 'ASC', warehouseId: 'ASC' },
+      order: { isDefault: 'DESC', name: 'ASC', warehouseId: 'ASC' },
     });
 
     if (!warehouses.length) {
@@ -94,16 +94,45 @@ export class WarehousesService {
     // throws NotFoundException if the company does not exist
     await this.companiesService.findOne(dto.companyId);
 
-    return this.warehouseRepository.save(this.warehouseRepository.create(dto));
+    return this.warehouseRepository.manager.transaction(async (manager) => {
+      const repository = manager.getRepository(Warehouse);
+      const hasDefault = await repository.exists({
+        where: { companyId: dto.companyId, isDefault: true },
+      });
+      // the first warehouse of a company is always the default one
+      const isDefault = !hasDefault || dto.isDefault === true;
+
+      if (isDefault) {
+        await this.clearDefault(manager, dto.companyId);
+      }
+
+      return repository.save(repository.create({ ...dto, isDefault }));
+    });
   }
 
   async update(warehouseId: number, dto: UpdateWarehouseDto, user: User) {
     const warehouse = await this.findOne(warehouseId, user);
 
-    Object.assign(warehouse, dto);
-    delete warehouse.drinks;
+    return this.warehouseRepository.manager.transaction(async (manager) => {
+      const { isDefault, ...rest } = dto;
+      Object.assign(warehouse, rest);
+      delete warehouse.drinks;
 
-    return this.warehouseRepository.save(warehouse);
+      // a company always keeps one default, so it is changed only by
+      // making another warehouse the default one
+      if (isDefault === true && !warehouse.isDefault) {
+        await this.clearDefault(manager, warehouse.companyId);
+        warehouse.isDefault = true;
+      }
+
+      return manager.getRepository(Warehouse).save(warehouse);
+    });
+  }
+
+  private clearDefault(manager: EntityManager, companyId: number) {
+    return manager
+      .getRepository(Warehouse)
+      .update({ companyId, isDefault: true }, { isDefault: false });
   }
 
   /**
@@ -111,7 +140,7 @@ export class WarehousesService {
    * @throws ConflictException if the warehouse still has drinks
    */
   async remove(warehouseId: number, user: User) {
-    await this.findOne(warehouseId, user);
+    const warehouse = await this.findOne(warehouseId, user);
 
     const drinksCount = await this.warehouseRepository.manager.count(Drink, {
       where: { warehouseId },
@@ -124,6 +153,20 @@ export class WarehousesService {
     }
 
     await this.warehouseRepository.softDelete({ warehouseId });
+
+    // the default one is gone, so the first remaining warehouse takes over
+    if (warehouse.isDefault) {
+      const next = await this.warehouseRepository.findOne({
+        where: { companyId: warehouse.companyId },
+        order: { warehouseId: 'ASC' },
+      });
+
+      if (next) {
+        await this.warehouseRepository.update(next.warehouseId, {
+          isDefault: true,
+        });
+      }
+    }
 
     return true;
   }

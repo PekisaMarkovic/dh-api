@@ -21,6 +21,13 @@ export class Warehouse extends AuditEntity {
   @Column({ length: 150 })
   name: string;
 
+  @ApiProperty({
+    description:
+      'The preselected warehouse of the company, only one is default',
+  })
+  @Column({ name: 'is_default', type: 'boolean', default: false })
+  isDefault: boolean;
+
   @ApiProperty()
   @Column({ name: 'company_id' })
   companyId: number;

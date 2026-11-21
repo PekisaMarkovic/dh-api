@@ -1,5 +1,12 @@
 import { ApiProperty, PartialType, OmitType } from '@nestjs/swagger';
-import { IsInt, IsNotEmpty, IsString, MaxLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
 export class CreateWarehouseDto {
   @ApiProperty()
@@ -11,6 +18,11 @@ export class CreateWarehouseDto {
   @ApiProperty()
   @IsInt()
   companyId: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsBoolean()
+  isDefault?: boolean;
 }
 
 export class UpdateWarehouseDto extends PartialType(
