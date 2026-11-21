@@ -29,6 +29,10 @@ import { Role } from '@/auth/entities/role.entity';
 import { Permission } from '@/auth/entities/permission.entity';
 import { ValidationToken } from '@/validation-token/entities/validation-token.entity';
 
+import { PurchaseImport } from '@/purchase-import/entities/purchase-import.entity';
+import { PurchaseImportItem } from '@/purchase-import/entities/purchase-import-item.entity';
+import { PurchaseImportModule } from '@/purchase-import/purchase-import.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -56,6 +60,8 @@ import { ValidationToken } from '@/validation-token/entities/validation-token.en
           Customer,
           Proforma,
           ProformaItem,
+          PurchaseImport,
+          PurchaseImportItem,
         ],
         synchronize: true,
       }),
@@ -72,6 +78,7 @@ import { ValidationToken } from '@/validation-token/entities/validation-token.en
     CustomersModule,
     ProformasModule,
     StockAlertsModule,
+    PurchaseImportModule,
     SeederModule,
   ],
   providers: [
