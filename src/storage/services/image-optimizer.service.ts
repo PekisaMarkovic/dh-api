@@ -20,11 +20,14 @@ export class ImageOptimizerService {
    * into IMAGE_MAX_SIDE x IMAGE_MAX_SIDE. The EXIF rotation is applied and the metadata is dropped.
    * @throws BadRequestException if the file is not an image
    */
-  async toWebp(input: Buffer): Promise<OptimizedImage> {
+  async toWebp(
+    input: Buffer,
+    maxSide: number = IMAGE_MAX_SIDE,
+  ): Promise<OptimizedImage> {
     try {
       const { data, info } = await sharp(input)
         .rotate()
-        .resize(IMAGE_MAX_SIDE, IMAGE_MAX_SIDE, {
+        .resize(maxSide, maxSide, {
           fit: 'inside',
           withoutEnlargement: true,
         })

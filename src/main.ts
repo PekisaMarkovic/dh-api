@@ -5,7 +5,7 @@ import { AppModule } from '@/app.module';
 import * as bodyParser from 'body-parser';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { getDashboardUrl } from '@/common/helpers/url.helpers';
+import { getClientUrls, getDashboardUrl } from '@/common/helpers/url.helpers';
 import { AllExceptionsFilter } from '@/common/filters';
 
 // http://localhost:4200/api
@@ -16,6 +16,8 @@ async function bootstrap() {
   const port = configService.get<number>('PORT', 4200);
   // production needs APP_DASHBOARD to be set, otherwise the app does not start
   const dashboard = getDashboardUrl(configService);
+  // the dashboard and the white label client sites (APP_CLIENT, locally localhost:4350)
+  const origins = [dashboard, ...getClientUrls(configService)];
 
   const config = new DocumentBuilder()
     .setTitle('DH API')
@@ -39,9 +41,9 @@ async function bootstrap() {
   app.getHttpAdapter().get('/swagger.json', (_, res) => res.json(document));
 
   app.enableCors({
-    origin: [dashboard],
+    origin: origins,
     methods: 'GET,POST,PUT,DELETE,PATCH,OPTIONS',
-    allowedHeaders: 'Content-Type, Authorization, X-Portal-Type',
+    allowedHeaders: 'Content-Type, Authorization, X-Portal-Type, X-Access-Key',
     credentials: true,
   });
 

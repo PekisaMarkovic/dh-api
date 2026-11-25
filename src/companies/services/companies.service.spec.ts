@@ -8,6 +8,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { ClientRoleEnums } from '@/auth/enums';
 import { Company } from '@/companies/entities/company.entity';
 import { CompaniesService } from '@/companies/services/companies.service';
+import { Client } from '@/clients/entities/client.entity';
 import { Drink } from '@/drinks/entities/drink.entity';
 import { User } from '@/users/entities/user.entity';
 import { UsersService } from '@/users/services/users.service';
@@ -268,18 +269,21 @@ describe('CompaniesService', () => {
       expect(companyRepository.manager.transaction).not.toHaveBeenCalled();
     });
 
-    it('should soft delete the drinks, the warehouses and the company in one transaction', async () => {
+    it('should soft delete the clients, the drinks, the warehouses and the company in one transaction', async () => {
       companyRepository.findOne.mockResolvedValue(storedCompany());
 
       await expect(service.remove(1)).resolves.toBe(true);
 
-      expect(manager.softDelete).toHaveBeenNthCalledWith(1, Drink, {
+      expect(manager.softDelete).toHaveBeenNthCalledWith(1, Client, {
         companyId: 1,
       });
-      expect(manager.softDelete).toHaveBeenNthCalledWith(2, Warehouse, {
+      expect(manager.softDelete).toHaveBeenNthCalledWith(2, Drink, {
         companyId: 1,
       });
-      expect(manager.softDelete).toHaveBeenNthCalledWith(3, Company, {
+      expect(manager.softDelete).toHaveBeenNthCalledWith(3, Warehouse, {
+        companyId: 1,
+      });
+      expect(manager.softDelete).toHaveBeenNthCalledWith(4, Company, {
         companyId: 1,
       });
     });

@@ -47,6 +47,7 @@ On the first start the tables are created and the first data is seeded (see belo
 | `DB_SSL` | `true` / `false` forces an encrypted connection. When it is left out, it is on everywhere except `ENVIROMENT=local`. |
 | `JWT_SECRET` | Secret that signs the tokens. Use a long random value in production. |
 | `JWT_EXPIRE` / `JWT_REFRESH_EXPIRE` | Life of the access token (`10m`) and of the refresh token (`30m`). |
+| `APP_CLIENT` | Addresses of the white label client sites (Next.js) that CORS allows next to the dashboard, separated by a comma. Local default: `http://localhost:4350`. In production only the listed domains are allowed. |
 | `APP_DASHBOARD` | Address of the dashboard. Used in the links of the emails and as the only origin CORS allows. Local: `http://localhost:4300`. Production: the real domain, e.g. `https://app.example.com`. |
 | `APP_NAME` | Name of the app. |
 | `BREVO_API_KEY` | Brevo API key (SMTP & API → API keys). |

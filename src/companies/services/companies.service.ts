@@ -12,6 +12,7 @@ import { Warehouse } from '@/warehouses/entities/warehouse.entity';
 import { User } from '@/users/entities/user.entity';
 import { UsersService } from '@/users/services/users.service';
 import { ClientRoleEnums } from '@/auth/enums';
+import { Client } from '@/clients/entities/client.entity';
 import { Drink } from '@/drinks/entities/drink.entity';
 import {
   CreateCompanyDto,
@@ -119,6 +120,7 @@ export class CompaniesService {
     await this.findOne(companyId);
 
     await this.companyRepository.manager.transaction(async (manager) => {
+      await manager.softDelete(Client, { companyId });
       await manager.softDelete(Drink, { companyId });
       await manager.softDelete(Warehouse, { companyId });
 

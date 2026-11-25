@@ -1,6 +1,7 @@
 import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
 import { AuditEntity } from '@/common/entities/audit.entity';
+import { Client } from '@/clients/entities/client.entity';
 import { Drink } from '@/drinks/entities/drink.entity';
 import { User } from '@/users/entities/user.entity';
 import { Warehouse } from '@/warehouses/entities/warehouse.entity';
@@ -53,7 +54,12 @@ export class Company extends AuditEntity {
       'The name printed as the issuer of the proforma PDF, the name of the employee is printed when it is empty',
     example: 'Petar Petrovic',
   })
-  @Column({ name: 'invoice_name', type: 'varchar', length: 150, nullable: true })
+  @Column({
+    name: 'invoice_name',
+    type: 'varchar',
+    length: 150,
+    nullable: true,
+  })
   invoiceName: string | null;
 
   @ApiProperty({ type: () => [Warehouse] })
@@ -64,6 +70,10 @@ export class Company extends AuditEntity {
   @ApiProperty({ type: () => [Drink] })
   @OneToMany(() => Drink, (drink) => drink.company)
   drinks: Drink[];
+
+  // the white label client sides (sites) of the company
+  @OneToMany(() => Client, (client) => client.company)
+  clients: Client[];
 
   @OneToMany(() => User, (user) => user.company)
   users: User[];

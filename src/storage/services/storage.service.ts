@@ -35,6 +35,13 @@ export class StorageService {
     return `${this.rootFolder}/company-${name}-${company.companyId}/drinks/${drinkId}`;
   }
 
+  /** `production/company-knez-bar-3/client/hero`, section: general (the logo), hero, story, promo */
+  clientFolder(company: { companyId: number; name: string }, section: string) {
+    const name = slugify({ text: company.name, truncate: 50 }) || 'company';
+
+    return `${this.rootFolder}/company-${name}-${company.companyId}/client/${section}`;
+  }
+
   async upload(key: string, body: Buffer, contentType: string) {
     await this.s3().send(
       new PutObjectCommand({
