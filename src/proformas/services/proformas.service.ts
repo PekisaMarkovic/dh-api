@@ -76,6 +76,8 @@ export class ProformasService {
         const drinks = await manager.find(Drink, {
           where: { drinkId: In(drinkIds), warehouseId: warehouse.warehouseId },
           order: { drinkId: 'ASC' },
+          // the image is a LEFT JOIN, Postgres can not lock the nullable side of it
+          loadEagerRelations: false,
           lock: { mode: 'pessimistic_write' },
         });
         const drinkById = new Map(
@@ -202,6 +204,7 @@ export class ProformasService {
       const drinks = await manager.find(Drink, {
         where: { drinkId: In(lockIds), warehouseId: proforma.warehouseId },
         order: { drinkId: 'ASC' },
+        loadEagerRelations: false,
         lock: { mode: 'pessimistic_write' },
       });
       const drinkById = new Map(drinks.map((drink) => [drink.drinkId, drink]));

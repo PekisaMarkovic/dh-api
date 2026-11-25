@@ -20,6 +20,7 @@ import { useDatabaseSsl } from '@/db/ssl';
 import { Company } from '@/companies/entities/company.entity';
 import { Warehouse } from '@/warehouses/entities/warehouse.entity';
 import { Drink } from '@/drinks/entities/drink.entity';
+import { Image } from '@/storage/entities/image.entity';
 import { ProformasModule } from '@/proformas/proformas.module';
 import { Proforma } from '@/proformas/entities/proforma.entity';
 import { ProformaItem } from '@/proformas/entities/proforma-item.entity';
@@ -57,6 +58,7 @@ import { PurchaseImportModule } from '@/purchase-import/purchase-import.module';
           Company,
           Warehouse,
           Drink,
+          Image,
           Customer,
           Proforma,
           ProformaItem,

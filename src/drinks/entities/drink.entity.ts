@@ -4,11 +4,13 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
+  OneToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
 import { AuditEntity } from '@/common/entities/audit.entity';
 import { Company } from '@/companies/entities/company.entity';
+import { Image } from '@/storage/entities/image.entity';
 import { Warehouse } from '@/warehouses/entities/warehouse.entity';
 
 // company_id is denormalized from the warehouse so drinks can be searched per company without a join
@@ -64,6 +66,20 @@ export class Drink extends AuditEntity {
   })
   @Column({ name: 'critical_quantity', type: 'int', default: 0 })
   criticalQuantity: number;
+
+  @ApiProperty({ nullable: true, type: Number })
+  @Column({ name: 'image_id', type: 'int', nullable: true })
+  imageId: number | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: () => Image,
+    description:
+      'The image (WebP, at most 1200x1200) with its public `url`, null = no image',
+  })
+  @OneToOne(() => Image, { nullable: true, eager: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'image_id' })
+  image: Image | null;
 
   @ApiProperty()
   @Column({ name: 'warehouse_id' })

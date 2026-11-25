@@ -14,6 +14,9 @@ import { WarehousesService } from '@/warehouses/services/warehouses.service';
 import { CreateDrinkDto, UpdateDrinkDto } from '@/drinks/dto/drink.dto';
 import { DrinkStockLevel, FindDrinksDto } from '@/drinks/dto/find-drinks.dto';
 import { toLikePattern } from '@/common/helpers';
+import { StorageService } from '@/storage/services/storage.service';
+import { ImagesService } from '@/storage/services/images.service';
+import { ImageOptimizerService } from '@/storage/services/image-optimizer.service';
 
 @Injectable()
 export class DrinksService {
@@ -22,6 +25,9 @@ export class DrinksService {
     private readonly drinkRepository: Repository<Drink>,
     private readonly warehousesService: WarehousesService,
     private readonly companiesService: CompaniesService,
+    private readonly storageService: StorageService,
+    private readonly imagesService: ImagesService,
+    private readonly imageOptimizer: ImageOptimizerService,
   ) {}
 
   async findAll(user: User, query: FindDrinksDto) {
@@ -38,7 +44,7 @@ export class DrinksService {
     };
     const pattern = toLikePattern(query.search);
 
-    return paginate(this.drinkRepository, query, {
+    const page = await paginate(this.drinkRepository, query, {
       // name OR code
       where: pattern
         ? [
@@ -48,6 +54,8 @@ export class DrinksService {
         : base,
       order: { name: 'ASC', drinkId: 'ASC' },
     });
+
+    return page;
   }
 
   /**
@@ -119,6 +127,66 @@ export class DrinksService {
     Object.assign(drink, dto);
 
     return this.drinkRepository.save(drink);
+  }
+
+  /**
+   * Saves the image of a drink as a WebP (at most 1200x1200) in
+   * `<production|local>/company-<name>-<id>/drinks/<drinkId>/<time>.webp` and as a row of `images`,
+   * the old image is deleted. Every upload has a new name so the browser and the CDN never show the old one.
+   */
+  async setImage(
+    drinkId: number,
+    file: Express.Multer.File,
+    user: User,
+    altText?: string,
+  ) {
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('The image is missing.');
+    }
+
+    const drink = await this.findOne(drinkId, user);
+    const optimized = await this.imageOptimizer.toWebp(file.buffer);
+    const company = await this.companiesService.findOne(drink.companyId);
+    const old = drink.image;
+
+    const image = await this.imagesService.create({
+      companyId: drink.companyId,
+      folder: this.storageService.drinkFolder(company, drinkId),
+      image: optimized,
+      altText: altText || drink.name,
+    });
+
+    try {
+      await this.drinkRepository.update(
+        { drinkId },
+        { imageId: image.imageId },
+      );
+    } catch (error) {
+      await this.imagesService.remove(image);
+      throw error;
+    }
+
+    if (old) {
+      await this.imagesService.remove(old);
+    }
+
+    drink.imageId = image.imageId;
+    drink.image = image;
+
+    return drink;
+  }
+
+  async removeImage(drinkId: number, user: User) {
+    const drink = await this.findOne(drinkId, user);
+
+    if (drink.image) {
+      await this.drinkRepository.update({ drinkId }, { imageId: null });
+      await this.imagesService.remove(drink.image);
+      drink.imageId = null;
+      drink.image = null;
+    }
+
+    return drink;
   }
 
   /**

@@ -7,15 +7,26 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Put,
   Query,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { CurrentUser, Roles } from '@/auth/decorators';
 import { ClientRoleEnums } from '@/auth/enums';
 import { User } from '@/users/entities/user.entity';
 import { DrinksService } from '@/drinks/services/drinks.service';
 import { CreateDrinkDto, UpdateDrinkDto } from '@/drinks/dto/drink.dto';
 import { FindDrinksDto } from '@/drinks/dto/find-drinks.dto';
+import { IMAGE_MAX_UPLOAD_BYTES } from '@/storage/storage.constants';
 
 @Controller('drinks')
 @ApiTags('Drinks')
@@ -57,6 +68,52 @@ export class DrinksController {
     @CurrentUser() user: User,
   ) {
     return this.drinksService.update(drinkId, dto, user);
+  }
+
+  @Put(':drinkId/image')
+  @Roles(ClientRoleEnums.SUPER_ADMIN, ClientRoleEnums.ADMIN)
+  @ApiOperation({
+    summary:
+      'Upload the image of a drink (jpg, png, webp...). It is saved as a WebP, at most 1200x1200. Replaces the old one.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+        altText: {
+          type: 'string',
+          description: 'Alt text, the drink name by default',
+        },
+      },
+    },
+  })
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: IMAGE_MAX_UPLOAD_BYTES } }),
+  )
+  setImage(
+    @Param('drinkId', ParseIntPipe) drinkId: number,
+    @UploadedFile() file: Express.Multer.File,
+    @Body('altText') altText: string | undefined,
+    @CurrentUser() user: User,
+  ) {
+    return this.drinksService.setImage(
+      drinkId,
+      file,
+      user,
+      typeof altText === 'string' ? altText.slice(0, 255) : undefined,
+    );
+  }
+
+  @Delete(':drinkId/image')
+  @Roles(ClientRoleEnums.SUPER_ADMIN, ClientRoleEnums.ADMIN)
+  @ApiOperation({ summary: 'Delete the image of a drink' })
+  removeImage(
+    @Param('drinkId', ParseIntPipe) drinkId: number,
+    @CurrentUser() user: User,
+  ) {
+    return this.drinksService.removeImage(drinkId, user);
   }
 
   @Delete(':drinkId')

@@ -12,6 +12,9 @@ import { DrinkStockLevel } from '@/drinks/dto/find-drinks.dto';
 import { Drink } from '@/drinks/entities/drink.entity';
 import { DrinksService } from '@/drinks/services/drinks.service';
 import { User } from '@/users/entities/user.entity';
+import { ImageOptimizerService } from '@/storage/services/image-optimizer.service';
+import { ImagesService } from '@/storage/services/images.service';
+import { StorageService } from '@/storage/services/storage.service';
 import { WarehousesService } from '@/warehouses/services/warehouses.service';
 
 jest.mock('nestjs-typeorm-paginate', () => ({
@@ -27,9 +30,18 @@ describe('DrinksService', () => {
     create: jest.Mock;
     save: jest.Mock;
     softDelete: jest.Mock;
+    update: jest.Mock;
   };
   let warehousesService: { findOne: jest.Mock };
-  let companiesService: { assertCanAccess: jest.Mock };
+  let companiesService: { assertCanAccess: jest.Mock; findOne: jest.Mock };
+  let storageService: {
+    upload: jest.Mock;
+    delete: jest.Mock;
+    publicUrl: jest.Mock;
+    drinkFolder: jest.Mock;
+  };
+  let imageOptimizer: { toWebp: jest.Mock };
+  let imagesService: { create: jest.Mock; remove: jest.Mock };
 
   const user = { userId: 7, companyId: 1, roles: [] } as unknown as User;
   const query = { page: 1, limit: 10 };
@@ -58,14 +70,35 @@ describe('DrinksService', () => {
     drinkRepository = {
       findOne: jest.fn(),
       exists: jest.fn().mockResolvedValue(false),
-      create: jest.fn((entity: Partial<Drink>) => entity),
+      create: jest.fn((entity: Partial<Drink>) => ({ ...entity })),
       save: jest.fn((entity: Partial<Drink>) => Promise.resolve(entity)),
       softDelete: jest.fn().mockResolvedValue(undefined),
+      update: jest.fn().mockResolvedValue(undefined),
     };
     warehousesService = {
       findOne: jest.fn().mockResolvedValue({ warehouseId: 5, companyId: 1 }),
     };
-    companiesService = { assertCanAccess: jest.fn() };
+    companiesService = {
+      assertCanAccess: jest.fn(),
+      findOne: jest.fn().mockResolvedValue({ companyId: 1, name: 'KNEZ BAR' }),
+    };
+    storageService = {
+      upload: jest.fn().mockResolvedValue(undefined),
+      delete: jest.fn().mockResolvedValue(undefined),
+      publicUrl: jest.fn((key: string | null) =>
+        key ? `https://cdn.test/${key}` : null,
+      ),
+      drinkFolder: jest
+        .fn()
+        .mockReturnValue('local/company-knez-bar-1/drinks/3'),
+    };
+    imagesService = {
+      create: jest.fn(),
+      remove: jest.fn().mockResolvedValue(undefined),
+    };
+    imageOptimizer = {
+      toWebp: jest.fn().mockResolvedValue(Buffer.from('webp')),
+    };
     (paginate as jest.Mock)
       .mockReset()
       .mockResolvedValue({ items: [], meta: {} });
@@ -76,6 +109,9 @@ describe('DrinksService', () => {
         { provide: getRepositoryToken(Drink), useValue: drinkRepository },
         { provide: WarehousesService, useValue: warehousesService },
         { provide: CompaniesService, useValue: companiesService },
+        { provide: StorageService, useValue: storageService },
+        { provide: ImageOptimizerService, useValue: imageOptimizer },
+        { provide: ImagesService, useValue: imagesService },
       ],
     }).compile();
 
@@ -362,6 +398,105 @@ describe('DrinksService', () => {
 
       await expect(service.remove(99, user)).rejects.toThrow(NotFoundException);
       expect(drinkRepository.softDelete).not.toHaveBeenCalled();
+    });
+  });
+  describe('images', () => {
+    const file = { buffer: Buffer.from('jpg') } as Express.Multer.File;
+    const optimized = { buffer: Buffer.from('webp'), width: 800, height: 600 };
+
+    beforeEach(() => {
+      imageOptimizer.toWebp.mockResolvedValue(optimized);
+      imagesService.create.mockResolvedValue({
+        imageId: 9,
+        key: 'local/new.webp',
+        url: 'https://cdn.test/local/new.webp',
+      });
+    });
+
+    it('should save the image in the folder of the drink and link it to the drink', async () => {
+      drinkRepository.findOne.mockResolvedValue(storedDrink());
+
+      const result = await service.setImage(3, file, user);
+
+      expect(imageOptimizer.toWebp).toHaveBeenCalledWith(file.buffer);
+      expect(imagesService.create).toHaveBeenCalledWith({
+        companyId: 1,
+        folder: 'local/company-knez-bar-1/drinks/3',
+        image: optimized,
+        altText: 'FANTA 1.5L',
+      });
+      expect(drinkRepository.update).toHaveBeenCalledWith(
+        { drinkId: 3 },
+        { imageId: 9 },
+      );
+      expect(result.image?.url).toBe('https://cdn.test/local/new.webp');
+      expect(imagesService.remove).not.toHaveBeenCalled();
+    });
+
+    it('should use the given alt text', async () => {
+      drinkRepository.findOne.mockResolvedValue(storedDrink());
+
+      await service.setImage(3, file, user, 'Orange soda');
+
+      expect(imagesService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ altText: 'Orange soda' }),
+      );
+    });
+
+    it('should delete the old image when it is replaced', async () => {
+      const old = { imageId: 4, key: 'local/old.webp' };
+      drinkRepository.findOne.mockResolvedValue(
+        storedDrink({ image: old as Drink['image'] }),
+      );
+
+      await service.setImage(3, file, user);
+
+      expect(imagesService.remove).toHaveBeenCalledWith(old);
+    });
+
+    it('should delete the new image when the database fails', async () => {
+      drinkRepository.findOne.mockResolvedValue(storedDrink());
+      drinkRepository.update.mockRejectedValue(new Error('db'));
+
+      await expect(service.setImage(3, file, user)).rejects.toThrow('db');
+      expect(imagesService.remove).toHaveBeenCalledWith(
+        expect.objectContaining({ imageId: 9 }),
+      );
+    });
+
+    it('should reject a request without a file', async () => {
+      await expect(
+        service.setImage(3, undefined as unknown as Express.Multer.File, user),
+      ).rejects.toThrow(BadRequestException);
+      expect(imagesService.create).not.toHaveBeenCalled();
+    });
+
+    it('should not touch the image of a drink of another company', async () => {
+      drinkRepository.findOne.mockResolvedValue(storedDrink({ companyId: 2 }));
+      companiesService.assertCanAccess.mockImplementation(() => {
+        throw new ForbiddenException();
+      });
+
+      await expect(service.setImage(3, file, user)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(imagesService.create).not.toHaveBeenCalled();
+    });
+
+    it('should remove the image', async () => {
+      const image = { imageId: 4, key: 'local/a.webp' };
+      drinkRepository.findOne.mockResolvedValue(
+        storedDrink({ image: image as Drink['image'] }),
+      );
+
+      const result = await service.removeImage(3, user);
+
+      expect(drinkRepository.update).toHaveBeenCalledWith(
+        { drinkId: 3 },
+        { imageId: null },
+      );
+      expect(imagesService.remove).toHaveBeenCalledWith(image);
+      expect(result.image).toBeNull();
     });
   });
 });
