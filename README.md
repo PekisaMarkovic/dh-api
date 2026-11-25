@@ -41,28 +41,28 @@ On the first start the tables are created and the first data is seeded (see belo
 
 ## Environment variables
 
-| Variable | What it is |
-| --- | --- |
-| `ENVIROMENT` | `local` or `production` (yes, spelled like this). Production is stricter, see below. |
-| `PORT` | Port of the API, `4200`. |
-| `DB_HOST` `DB_PORT` `DB_USERNAME` `DB_PASSWORD` `DB_NAME` | PostgreSQL connection. |
-| `DB_SSL` | `true` / `false` forces an encrypted connection. When it is left out, it is on everywhere except `ENVIROMENT=local`. |
-| `JWT_SECRET` | Secret that signs the tokens. Use a long random value in production. |
-| `JWT_EXPIRE` / `JWT_REFRESH_EXPIRE` | Life of the access token (`10m`) and of the refresh token (`30m`). |
-| `APP_CLIENT` | Addresses of the white label client sites (Next.js) that CORS allows next to the dashboard, separated by a comma. Local default: `http://localhost:4350`. In production only the listed domains are allowed. |
-| `APP_DASHBOARD` | Address of the dashboard. Used in the links of the emails and as the only origin CORS allows. Local: `http://localhost:4300`. Production: the real domain, e.g. `https://app.example.com`. |
-| `APP_NAME` | Name of the app. |
-| `BREVO_API_KEY` | Brevo API key (SMTP & API → API keys). |
-| `MAIL_FROM_EMAIL` | Sender address. It has to be a verified sender in Brevo. |
-| `MAIL_FROM_NAME` | Sender name, `DH`. |
-| `BREVO_SANDBOX` | `true`: Brevo only checks the request and delivers nothing. `false`: really sends. |
-| `SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD` | The first super admin, created by the seeder. Change the password. |
-| `R2_ACCOUNT_ID` `R2_ACCESS_KEY` `R2_SECRET_ACCESS_KEY` | Credentials of the Cloudflare R2 bucket (Manage R2 API Tokens). |
-| `R2_BUCKET_NAME` | Name of the bucket, e.g. `dh-images`. |
-| `R2_ENDPOINT` | S3 address of R2 (`https://<account>.r2.cloudflarestorage.com`). If the bucket name is at the end of it, it is ignored. |
-| `R2_PUBLIC_URL` | Public address of the bucket (`https://pub-....r2.dev` or your own domain), the address of a picture is this plus its key. |
-| `REVALIDATE_SECRET` | Shared secret with the client sites. After a change in the dashboard the API calls `<APP_CLIENT>/api/revalidate` with it, so the change shows at once. Use the same value in `dh-client`. Without it the sites show the change within a minute. |
-| `GEMINI_API_KEY` | Key of Google Gemini (aistudio.google.com/apikey), used to read the uploaded purchase documents. Without it the import answers `503`, everything else works. |
+| Variable                                                  | What it is                                                                                                                                                                                                                                      |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ENVIROMENT`                                              | `local` or `production` (yes, spelled like this). Production is stricter, see below.                                                                                                                                                            |
+| `PORT`                                                    | Port of the API, `4200`.                                                                                                                                                                                                                        |
+| `DB_HOST` `DB_PORT` `DB_USERNAME` `DB_PASSWORD` `DB_NAME` | PostgreSQL connection.                                                                                                                                                                                                                          |
+| `DB_SSL`                                                  | `true` / `false` forces an encrypted connection. When it is left out, it is on everywhere except `ENVIROMENT=local`.                                                                                                                            |
+| `JWT_SECRET`                                              | Secret that signs the tokens. Use a long random value in production.                                                                                                                                                                            |
+| `JWT_EXPIRE` / `JWT_REFRESH_EXPIRE`                       | Life of the access token (`10m`) and of the refresh token (`30m`).                                                                                                                                                                              |
+| `APP_CLIENT`                                              | Addresses of the white label client sites (Next.js) that CORS allows next to the dashboard, separated by a comma. Local default: `http://localhost:4350`. In production only the listed domains are allowed.                                    |
+| `APP_DASHBOARD`                                           | Address of the dashboard. Used in the links of the emails and as the only origin CORS allows. Local: `http://localhost:4300`. Production: the real domain, e.g. `https://app.example.com`.                                                      |
+| `APP_NAME`                                                | Name of the app.                                                                                                                                                                                                                                |
+| `BREVO_API_KEY`                                           | Brevo API key (SMTP & API → API keys).                                                                                                                                                                                                          |
+| `MAIL_FROM_EMAIL`                                         | Sender address. It has to be a verified sender in Brevo.                                                                                                                                                                                        |
+| `MAIL_FROM_NAME`                                          | Sender name, `DH`.                                                                                                                                                                                                                              |
+| `BREVO_SANDBOX`                                           | `true`: Brevo only checks the request and delivers nothing. `false`: really sends.                                                                                                                                                              |
+| `SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD`              | The first super admin, created by the seeder. Change the password.                                                                                                                                                                              |
+| `R2_ACCOUNT_ID` `R2_ACCESS_KEY` `R2_SECRET_ACCESS_KEY`    | Credentials of the Cloudflare R2 bucket (Manage R2 API Tokens).                                                                                                                                                                                 |
+| `R2_BUCKET_NAME`                                          | Name of the bucket, e.g. `dh-images`.                                                                                                                                                                                                           |
+| `R2_ENDPOINT`                                             | S3 address of R2 (`https://<account>.r2.cloudflarestorage.com`). If the bucket name is at the end of it, it is ignored.                                                                                                                         |
+| `R2_PUBLIC_URL`                                           | Public address of the bucket (`https://pub-....r2.dev` or your own domain), the address of a picture is this plus its key.                                                                                                                      |
+| `REVALIDATE_SECRET`                                       | Shared secret with the client sites. After a change in the dashboard the API calls `<APP_CLIENT>/api/revalidate` with it, so the change shows at once. Use the same value in `dh-client`. Without it the sites show the change within a minute. |
+| `GEMINI_API_KEY`                                          | Key of Google Gemini (aistudio.google.com/apikey), used to read the uploaded purchase documents. Without it the import answers `503`, everything else works.                                                                                    |
 
 **Production rules.** With `ENVIROMENT=production` the API will not start if `APP_DASHBOARD` is empty or points to `localhost`, it will not send emails without `BREVO_API_KEY`, and the daily low stock email is only sent from a production server (so a local server never writes to real people).
 
@@ -194,20 +194,20 @@ Two services on purpose:
 
 Everything is under `/api`. All need a login except where it says public.
 
-| Area | Endpoints |
-| --- | --- |
-| Auth | `POST auth/login` (public), `auth/refresh` (public), `auth/first-time-register` (public), `auth/is-user-token-valid` (public), `auth/logout` |
-| Users | `GET users/profile`, `PATCH users/profile` (phone, date of birth, language), `GET users` (super admin) |
-| Invitations | `POST invitations` (admin), `GET invitations` (admin), `POST invitations/:id/resend` (admin), `GET invitations/:id/valid` (public) |
-| Companies | `GET companies`, `GET companies/:id`, `GET companies/:id/users` (admin), `POST companies` (super admin), `PATCH companies/:id` (admin), `DELETE companies/:id` (super admin) |
-| Warehouses | `GET warehouses`, `GET warehouses/:id`, `POST` `PATCH` `DELETE` (admin, with `isDefault`) |
-| Drinks | `GET drinks` (`?warehouseId=` `?stockLevel=` `?search=`), `GET drinks/:id`, `POST` `PATCH` `DELETE` (admin), `PUT` / `DELETE drinks/:id/image` (admin, the picture of a drink) |
-| Customers | `GET customers`, `GET customers/options`, `GET customers/:id`, `POST` `PATCH` `DELETE` (admin) |
-| Proformas | `GET proformas`, `GET proformas/:id`, `POST proformas`, `PATCH proformas/:id` (admin), `GET proformas/:id/pdf`, `POST proformas/:id/return` (admin) |
-| Purchase import | all admin: `POST purchase-import/parse`, `POST purchase-import/apply`, `GET purchase-import`, `GET purchase-import/:id`, `DELETE purchase-import/:id` |
-| Stock alerts | `POST stock-alerts/digest` (admin) |
-| Website | all admin: `GET website`, `PATCH website`, `PUT` / `DELETE website/images/:slot`, `POST website/publish`, `POST website/unpublish`, `GET website/contacts` |
-| Public (header `X-Access-Key`) | `GET public/site`, `GET public/drinks`, `POST public/contact` |
+| Area                           | Endpoints                                                                                                                                                                      |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Auth                           | `POST auth/login` (public), `auth/refresh` (public), `auth/first-time-register` (public), `auth/is-user-token-valid` (public), `auth/logout`                                   |
+| Users                          | `GET users/profile`, `PATCH users/profile` (phone, date of birth, language), `GET users` (super admin)                                                                         |
+| Invitations                    | `POST invitations` (admin), `GET invitations` (admin), `POST invitations/:id/resend` (admin), `GET invitations/:id/valid` (public)                                             |
+| Companies                      | `GET companies`, `GET companies/:id`, `GET companies/:id/users` (admin), `POST companies` (super admin), `PATCH companies/:id` (admin), `DELETE companies/:id` (super admin)   |
+| Warehouses                     | `GET warehouses`, `GET warehouses/:id`, `POST` `PATCH` `DELETE` (admin, with `isDefault`)                                                                                      |
+| Drinks                         | `GET drinks` (`?warehouseId=` `?stockLevel=` `?search=`), `GET drinks/:id`, `POST` `PATCH` `DELETE` (admin), `PUT` / `DELETE drinks/:id/image` (admin, the picture of a drink) |
+| Customers                      | `GET customers`, `GET customers/options`, `GET customers/:id`, `POST` `PATCH` `DELETE` (admin)                                                                                 |
+| Proformas                      | `GET proformas`, `GET proformas/:id`, `POST proformas`, `PATCH proformas/:id` (admin), `GET proformas/:id/pdf`, `POST proformas/:id/return` (admin)                            |
+| Purchase import                | all admin: `POST purchase-import/parse`, `POST purchase-import/apply`, `GET purchase-import`, `GET purchase-import/:id`, `DELETE purchase-import/:id`                          |
+| Stock alerts                   | `POST stock-alerts/digest` (admin)                                                                                                                                             |
+| Website                        | all admin: `GET website`, `PATCH website`, `PUT` / `DELETE website/images/:slot`, `POST website/publish`, `POST website/unpublish`, `GET website/contacts`                     |
+| Public (header `X-Access-Key`) | `GET public/site`, `GET public/drinks`, `POST public/contact`                                                                                                                  |
 
 ## Project structure
 
@@ -242,13 +242,13 @@ Each feature folder is `entities/`, `dto/`, `services/`, `controllers/` and a `*
 
 Changes of the database go through migrations in `src/migrations` (TypeORM, files are named `<timestamp>-<Name>.ts`).
 
-| Command | What it does |
-| --- | --- |
-| `pnpm migration:run` | Runs the migrations that have not run yet. |
-| `pnpm migration:show` | Lists them and shows which ran. |
-| `pnpm migration:revert` | Takes back the last one. |
-| `pnpm migration:create src/migrations/Name` | Makes an empty migration to fill in. |
-| `pnpm migration:generate` | Makes a migration out of the difference between the entities and the database. |
+| Command                                     | What it does                                                                   |
+| ------------------------------------------- | ------------------------------------------------------------------------------ |
+| `pnpm migration:run`                        | Runs the migrations that have not run yet.                                     |
+| `pnpm migration:show`                       | Lists them and shows which ran.                                                |
+| `pnpm migration:revert`                     | Takes back the last one.                                                       |
+| `pnpm migration:create src/migrations/Name` | Makes an empty migration to fill in.                                           |
+| `pnpm migration:generate`                   | Makes a migration out of the difference between the entities and the database. |
 
 - Write `IF NOT EXISTS` / `IF EXISTS` in them, so a database that `synchronize` already changed (see below) does not make them fail.
 - A migration is never edited after it ran anywhere, a new one is added instead.
@@ -268,25 +268,25 @@ When you add a feature: test the happy path, every thrown error, and the rule th
 
 ## Deploy (Railway)
 
-| Setting | Value |
-| --- | --- |
-| Build | default (`pnpm install`, `pnpm build`) |
-| **Pre-deploy command** | `pnpm test && pnpm migration:run` |
-| Start | default (`pnpm start`, that is `node dist/main`) |
-| Variables | all from the table above, with `ENVIROMENT=production`, a real `APP_DASHBOARD`, the domains of the sites in `APP_CLIENT`, `BREVO_*`, `GEMINI_API_KEY`, `R2_*`, `REVALIDATE_SECRET` |
+| Setting                | Value                                                                                                                                                                              |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Build                  | default (`pnpm install`, `pnpm build`)                                                                                                                                             |
+| **Pre-deploy command** | `pnpm test && pnpm migration:run`                                                                                                                                                  |
+| Start                  | default (`pnpm start`, that is `node dist/main`)                                                                                                                                   |
+| Variables              | all from the table above, with `ENVIROMENT=production`, a real `APP_DASHBOARD`, the domains of the sites in `APP_CLIENT`, `BREVO_*`, `GEMINI_API_KEY`, `R2_*`, `REVALIDATE_SECRET` |
 
 The pre-deploy command runs between the build and the start: if a test or a migration fails the new version is not started and the old one keeps running. **Do not put it in "Custom Start Command"**, then the container runs the tests and exits and the API never starts. Alternatively run the tests on GitHub (a workflow) and turn on **Wait for CI** on Railway.
 
 ## Scripts
 
-| Command | What it does |
-| --- | --- |
-| `pnpm start:dev` | Run with auto restart. |
+| Command                        | What it does                                                                                                            |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| `pnpm start:dev`               | Run with auto restart.                                                                                                  |
 | `pnpm build` then `pnpm start` | Production build and run (`pnpm start` runs `node dist/main`, so it needs the build first; hosts like Railway do both). |
-| `pnpm test` | Unit tests. |
-| `pnpm lint` | ESLint. |
-| `pnpm format` | Prettier. |
-| `pnpm migration:*` | Migrations, see above. |
+| `pnpm test`                    | Unit tests.                                                                                                             |
+| `pnpm lint`                    | ESLint.                                                                                                                 |
+| `pnpm format`                  | Prettier.                                                                                                               |
+| `pnpm migration:*`             | Migrations, see above.                                                                                                  |
 
 ## Good to know
 
