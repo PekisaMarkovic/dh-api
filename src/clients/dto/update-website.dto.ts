@@ -72,6 +72,14 @@ export class PromoSectionDto {
   @text(60) buttonText?: string;
 }
 
+/** The texts Google shows: the title (about 60 characters) and the description (about 155) of the site and of the menu page */
+export class SeoSectionDto {
+  @text(70) title?: string;
+  @text(160) description?: string;
+  @text(70) menuTitle?: string;
+  @text(160) menuDescription?: string;
+}
+
 export class UpdateWebsiteDto {
   // ---- general info ----
   @ApiPropertyOptional({ example: 'Drink House' })
@@ -128,4 +136,10 @@ export class UpdateWebsiteDto {
   @ValidateNested()
   @Type(() => PromoSectionDto)
   promo?: PromoSectionDto;
+
+  @ApiPropertyOptional({ type: () => SeoSectionDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => SeoSectionDto)
+  seo?: SeoSectionDto;
 }

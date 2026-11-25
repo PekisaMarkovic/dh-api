@@ -2,7 +2,7 @@ import { Client } from '@/clients/entities/client.entity';
 
 /**
  * What a site needs before it can be published: every general info, the logo, every text of every section,
- * the picture of the hero, the story and the promo, and at least one recommended drink.
+ * the picture of the hero, the story and the promo, the SEO texts and picture (for Google and sharing), and at least one recommended drink.
  * A missing thing is `<section>.<field>`, e.g. `general.logo`, `hero.image`, `featured.drinks`.
  */
 export const REQUIRED_TEXTS = {
@@ -10,6 +10,7 @@ export const REQUIRED_TEXTS = {
   featured: ['title', 'buttonText'],
   story: ['title', 'paragraph1', 'paragraph2', 'buttonText'],
   promo: ['title', 'text', 'buttonText'],
+  seo: ['title', 'description', 'menuTitle', 'menuDescription'],
 } as const;
 
 const REQUIRED_GENERAL = [
@@ -44,6 +45,7 @@ export const getCompleteness = (
     | 'heroImageId'
     | 'storyImageId'
     | 'promoImageId'
+    | 'ogImageId'
   >,
 ): WebsiteCompleteness => {
   const missing: string[] = [];
@@ -80,6 +82,7 @@ export const getCompleteness = (
   if (!client.heroImageId) missing.push('hero.image');
   if (!client.storyImageId) missing.push('story.image');
   if (!client.promoImageId) missing.push('promo.image');
+  if (!client.ogImageId) missing.push('seo.image');
 
   return { isComplete: !missing.length, missing };
 };

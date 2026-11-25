@@ -22,6 +22,12 @@ describe('UpdateWebsiteDto', () => {
         workingHours: 'Ponedeljak: 07:00-19:00\nUtorak: 07:00-19:00',
         story: { paragraph1: 'a', paragraph2: 'b' },
         featured: { drinkIds: [1, 2] },
+        seo: {
+          title: 'Drink House',
+          description: 'Pića u Beogradu',
+          menuTitle: 'Karta pića',
+          menuDescription: 'Sva pića',
+        },
       }),
     ).toEqual([]);
   });
@@ -40,6 +46,10 @@ describe('UpdateWebsiteDto', () => {
     [{ story: { paragraph2: '' } }],
     [{ promo: { text: '' } }],
     [{ featured: { title: '' } }],
+    [{ seo: { title: '' } }],
+    [{ seo: { title: 'x'.repeat(71) } }],
+    [{ seo: { description: 'x'.repeat(161) } }],
+    [{ seo: { menuDescription: '' } }],
     [{ featured: { drinkIds: [] } }],
     [{ city: 'x'.repeat(101) }],
     [{ hero: { title: 'x'.repeat(151) } }],

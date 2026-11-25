@@ -169,6 +169,7 @@ describe('WebsiteService', () => {
         heroImageId: 2,
         storyImageId: 3,
         promoImageId: 4,
+        ogImageId: 5,
         sections: {
           hero: { title: 't', subtitle: 's', text: 'x', buttonText: 'b' },
           featured: { title: 't', buttonText: 'b', drinkIds: [1] },
@@ -179,6 +180,12 @@ describe('WebsiteService', () => {
             buttonText: 'c',
           },
           promo: { title: 't', text: 'x', buttonText: 'b' },
+          seo: {
+            title: 't',
+            description: 'd',
+            menuTitle: 'm',
+            menuDescription: 'md',
+          },
         },
       } as unknown as Partial<Client>);
 
@@ -273,6 +280,19 @@ describe('WebsiteService', () => {
       expect(clientRepository.update).toHaveBeenCalledWith(
         { clientId: 'abc' },
         { heroImageId: 9 },
+      );
+    });
+
+    it('should save the picture for sharing in the folder seo', async () => {
+      await service.setImage(user, 'og', file);
+
+      expect(storage.clientFolder).toHaveBeenCalledWith(
+        expect.anything(),
+        'seo',
+      );
+      expect(clientRepository.update).toHaveBeenCalledWith(
+        { clientId: 'abc' },
+        { ogImageId: 9 },
       );
     });
 

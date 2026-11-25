@@ -22,6 +22,7 @@ describe('PublicSiteService', () => {
       sections: {
         hero: { title: 'Naslov' },
         featured: { drinkIds: [2, 1, 99] },
+        seo: { title: 'SEO naslov', menuTitle: 'Karta' },
       },
       logoImage: {
         url: 'https://cdn/logo.webp',
@@ -33,6 +34,13 @@ describe('PublicSiteService', () => {
       heroImage: null,
       storyImage: null,
       promoImage: null,
+      ogImage: {
+        url: 'https://cdn/og.webp',
+        altText: null,
+        width: 1200,
+        height: 630,
+        key: 'secret2',
+      },
       ...overrides,
     }) as unknown as Client;
 
@@ -81,6 +89,18 @@ describe('PublicSiteService', () => {
       image: null,
     });
     expect(site.story.title).toBeNull();
+    expect(site.seo).toEqual({
+      title: 'SEO naslov',
+      description: null,
+      menuTitle: 'Karta',
+      menuDescription: null,
+      image: {
+        url: 'https://cdn/og.webp',
+        altText: null,
+        width: 1200,
+        height: 630,
+      },
+    });
     expect(JSON.stringify(site)).not.toContain('secret');
   });
 

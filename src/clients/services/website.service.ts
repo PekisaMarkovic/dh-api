@@ -35,12 +35,19 @@ const GENERAL_FIELDS = [
   'instagram',
   'workingHours',
 ] as const;
-const SECTION_NAMES: SectionName[] = ['hero', 'featured', 'story', 'promo'];
+const SECTION_NAMES: SectionName[] = [
+  'hero',
+  'featured',
+  'story',
+  'promo',
+  'seo',
+];
 const IMAGE_RELATIONS = {
   logoImage: true,
   heroImage: true,
   storyImage: true,
   promoImage: true,
+  ogImage: true,
 } as const;
 
 /** The site as the dashboard gets it: the row, its pictures and the names of the picked drinks */

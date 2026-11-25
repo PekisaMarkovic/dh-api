@@ -116,6 +116,13 @@ export class Client extends AuditEntity {
   @JoinColumn({ name: 'promo_image_id' })
   promoImage: Image | null;
 
+  @Column({ name: 'og_image_id', type: 'int', nullable: true })
+  ogImageId: number | null;
+
+  @ManyToOne(() => Image, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'og_image_id' })
+  ogImage: Image | null;
+
   @ApiProperty()
   @Index()
   @Column({ name: 'company_id' })

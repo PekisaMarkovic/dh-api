@@ -26,11 +26,20 @@ export interface PromoSection {
   buttonText: string;
 }
 
+/** What Google and the social networks show: the title and the description of the site and of the menu page */
+export interface SeoSection {
+  title: string;
+  description: string;
+  menuTitle: string;
+  menuDescription: string;
+}
+
 export interface ClientSections {
   hero?: Partial<HeroSection>;
   featured?: Partial<FeaturedSection>;
   story?: Partial<StorySection>;
   promo?: Partial<PromoSection>;
+  seo?: Partial<SeoSection>;
 }
 
 export type SectionName = keyof ClientSections;

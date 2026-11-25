@@ -49,6 +49,19 @@ class PublicPromo extends PublicImageSection {
   @ApiProperty({ nullable: true, type: String }) buttonText: string | null;
 }
 
+class PublicSeo {
+  @ApiProperty({ nullable: true, type: String }) title: string | null;
+  @ApiProperty({ nullable: true, type: String }) description: string | null;
+  @ApiProperty({ nullable: true, type: String }) menuTitle: string | null;
+  @ApiProperty({ nullable: true, type: String }) menuDescription: string | null;
+  @ApiProperty({
+    type: () => PublicDrinkImageDto,
+    nullable: true,
+    description: 'The picture shown when the site is shared',
+  })
+  image: PublicDrinkImageDto | null;
+}
+
 /** Everything a white label site shows, a text that is null means the site uses its own default text */
 export class PublicSiteDto {
   @ApiProperty({
@@ -68,4 +81,5 @@ export class PublicSiteDto {
   @ApiProperty({ type: () => PublicFeatured }) featured: PublicFeatured;
   @ApiProperty({ type: () => PublicStory }) story: PublicStory;
   @ApiProperty({ type: () => PublicPromo }) promo: PublicPromo;
+  @ApiProperty({ type: () => PublicSeo }) seo: PublicSeo;
 }

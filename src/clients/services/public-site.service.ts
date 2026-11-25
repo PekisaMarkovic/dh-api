@@ -25,9 +25,10 @@ export class PublicSiteService {
         heroImage: true,
         storyImage: true,
         promoImage: true,
+        ogImage: true,
       },
     });
-    const { hero, featured, story, promo } = full.sections ?? {};
+    const { hero, featured, story, promo, seo } = full.sections ?? {};
 
     return {
       status: full.status,
@@ -62,6 +63,13 @@ export class PublicSiteService {
         text: promo?.text ?? null,
         buttonText: promo?.buttonText ?? null,
         image: toPublicImage(full.promoImage),
+      },
+      seo: {
+        title: seo?.title ?? null,
+        description: seo?.description ?? null,
+        menuTitle: seo?.menuTitle ?? null,
+        menuDescription: seo?.menuDescription ?? null,
+        image: toPublicImage(full.ogImage),
       },
     };
   }

@@ -13,11 +13,18 @@ const complete = (): Parameters<typeof getCompleteness>[0] => ({
     featured: { title: 't', buttonText: 'b', drinkIds: [1] },
     story: { title: 't', paragraph1: 'a', paragraph2: 'b', buttonText: 'c' },
     promo: { title: 't', text: 'x', buttonText: 'b' },
+    seo: {
+      title: 't',
+      description: 'd',
+      menuTitle: 'm',
+      menuDescription: 'md',
+    },
   },
   logoImageId: 1,
   heroImageId: 2,
   storyImageId: 3,
   promoImageId: 4,
+  ogImageId: 5,
 });
 
 describe('getCompleteness', () => {
@@ -38,6 +45,7 @@ describe('getCompleteness', () => {
       heroImageId: null,
       storyImageId: null,
       promoImageId: null,
+      ogImageId: null,
     } as unknown as Client);
 
     expect(result.isComplete).toBe(false);
@@ -53,6 +61,8 @@ describe('getCompleteness', () => {
         'story.image',
         'promo.text',
         'promo.image',
+        'seo.title',
+        'seo.image',
       ]),
     );
     expect(result.missing).not.toContain('general.name');
@@ -66,6 +76,19 @@ describe('getCompleteness', () => {
     } as never);
 
     expect(result.missing).toEqual(['general.logo', 'hero.image']);
+  });
+
+  it('should need the SEO texts and the picture for sharing', () => {
+    const c = complete();
+    c.sections = { ...c.sections, seo: { title: 't' } };
+    c.ogImageId = null;
+
+    expect(getCompleteness(c).missing).toEqual([
+      'seo.description',
+      'seo.menuTitle',
+      'seo.menuDescription',
+      'seo.image',
+    ]);
   });
 
   it('should need at least one recommended drink', () => {
