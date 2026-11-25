@@ -27,7 +27,12 @@ describe('AllExceptionsFilter', () => {
   const databaseError = (driverError: object) =>
     new QueryFailedError('INSERT ...', [], driverError as Error);
 
+  afterEach(() => {
+    delete process.env.ENVIROMENT;
+  });
+
   beforeEach(() => {
+    delete process.env.ENVIROMENT;
     jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
     json = jest.fn();
     status = jest.fn().mockReturnValue({ json });
@@ -113,6 +118,40 @@ describe('AllExceptionsFilter', () => {
       expect(bodyOf().message).toBe(
         'Something went wrong on our side. Please try again later.',
       );
+      expect(JSON.stringify(bodyOf())).not.toContain('postgres');
+    });
+
+    it.each(['local', 'development'])(
+      'should show the real cause of an unexpected error in %s',
+      (environment) => {
+        process.env.ENVIROMENT = environment;
+
+        filter.catch(new Error('boom'), host);
+
+        expect(status).toHaveBeenCalledWith(500);
+        expect(bodyOf().message).toBe('Server error: boom');
+      },
+    );
+
+    it('should show the real cause of an unknown database error while developing', () => {
+      process.env.ENVIROMENT = 'local';
+
+      filter.catch(
+        databaseError({
+          code: '0A000',
+          message: 'FOR UPDATE cannot be applied',
+        }),
+        host,
+      );
+
+      expect(bodyOf().message).toContain('FOR UPDATE cannot be applied');
+    });
+
+    it('should never show the real cause in production', () => {
+      process.env.ENVIROMENT = 'production';
+
+      filter.catch(new Error('password for user "postgres" failed'), host);
+
       expect(JSON.stringify(bodyOf())).not.toContain('postgres');
     });
 

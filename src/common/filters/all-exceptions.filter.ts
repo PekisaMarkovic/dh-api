@@ -30,6 +30,12 @@ const STATUS_TEXT: Record<number, string> = {
   500: 'Internal Server Error',
 };
 
+/** Only on these environments the real text of an unexpected error is sent, in production it stays on the server (in the log) */
+const DETAILED_ERROR_ENVIRONMENTS = ['local', 'development'];
+
+const GENERAL_MESSAGE =
+  'Something went wrong on our side. Please try again later.';
+
 const PG_UNIQUE_VIOLATION = '23505';
 const PG_FOREIGN_KEY_VIOLATION = '23503';
 const PG_NOT_NULL_VIOLATION = '23502';
@@ -96,8 +102,19 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     return {
       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-      message: 'Something went wrong on our side. Please try again later.',
+      message: this.unexpectedMessage(
+        exception instanceof Error ? exception.message : String(exception),
+      ),
     };
+  }
+
+  /** The real cause while developing, the general sentence in production */
+  private unexpectedMessage(cause: string) {
+    const environment = process.env.ENVIROMENT?.trim().toLowerCase() ?? '';
+
+    return DETAILED_ERROR_ENVIRONMENTS.includes(environment) && cause
+      ? `Server error: ${cause}`
+      : GENERAL_MESSAGE;
   }
 
   private normalizeDatabaseError(error: QueryFailedError) {
@@ -140,7 +157,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       default:
         return {
           statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-          message: 'Something went wrong on our side. Please try again later.',
+          message: this.unexpectedMessage(error.message),
         };
     }
   }
