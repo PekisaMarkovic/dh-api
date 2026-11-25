@@ -2,7 +2,7 @@
 
 Backend of **DH**, an app where companies keep track of the drinks in their warehouses and make proformas (price quotes) from them.
 
-Built with NestJS, TypeORM and PostgreSQL. The frontend lives in the `dh-dashboard` repo.
+Built with NestJS, TypeORM and PostgreSQL. Two frontends use it: the admin app in the `dh-dashboard` repo and the public white label sites in the `dh-client` repo. Pictures are kept in Cloudflare R2.
 
 - API: `http://localhost:4200/api`
 - Swagger (all endpoints, try them out): `http://localhost:4200/api`
@@ -16,6 +16,8 @@ Built with NestJS, TypeORM and PostgreSQL. The frontend lives in the `dh-dashboa
 - **Low stock email.** Every morning every employee gets one email with what is low.
 - **Invite-only registration.** Nobody can sign up on their own. An admin invites an email, the person gets a link and finishes the registration.
 - **Users and roles.** Three roles: `super.admin`, `admin`, `user`. Every user keeps their own language (`en` or `sr`).
+- **Drink pictures.** A drink can have one picture. It is made into an optimized WebP and kept in Cloudflare R2.
+- **White label sites.** A company can have its own public site (the `dh-client` Next.js app). The admin of the company manages the texts, pictures, SEO and contact data of the site in the dashboard and **publishes** it. The site reads everything from the API, and visitors can send a message through its contact form.
 - **Emails** go out through Brevo.
 
 ## Quick start
@@ -55,6 +57,11 @@ On the first start the tables are created and the first data is seeded (see belo
 | `MAIL_FROM_NAME` | Sender name, `DH`. |
 | `BREVO_SANDBOX` | `true`: Brevo only checks the request and delivers nothing. `false`: really sends. |
 | `SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD` | The first super admin, created by the seeder. Change the password. |
+| `R2_ACCOUNT_ID` `R2_ACCESS_KEY` `R2_SECRET_ACCESS_KEY` | Credentials of the Cloudflare R2 bucket (Manage R2 API Tokens). |
+| `R2_BUCKET_NAME` | Name of the bucket, e.g. `dh-images`. |
+| `R2_ENDPOINT` | S3 address of R2 (`https://<account>.r2.cloudflarestorage.com`). If the bucket name is at the end of it, it is ignored. |
+| `R2_PUBLIC_URL` | Public address of the bucket (`https://pub-....r2.dev` or your own domain), the address of a picture is this plus its key. |
+| `REVALIDATE_SECRET` | Shared secret with the client sites. After a change in the dashboard the API calls `<APP_CLIENT>/api/revalidate` with it, so the change shows at once. Use the same value in `dh-client`. Without it the sites show the change within a minute. |
 | `GEMINI_API_KEY` | Key of Google Gemini (aistudio.google.com/apikey), used to read the uploaded purchase documents. Without it the import answers `503`, everything else works. |
 
 **Production rules.** With `ENVIROMENT=production` the API will not start if `APP_DASHBOARD` is empty or points to `localhost`, it will not send emails without `BREVO_API_KEY`, and the daily low stock email is only sent from a production server (so a local server never writes to real people).
@@ -69,6 +76,8 @@ Every start checks and fills in what is missing, it never overwrites anything:
 2. Makes sure the super admin from `SUPER_ADMIN_EMAIL` exists.
 3. Makes sure the company **DRINK HOUSE** exists (an older company called NakNak is renamed, and gets the data that is printed on documents if it has none).
 4. Users without a company are attached to it (there is one company for now).
+
+The seeder does **not** make white label sites. A site is a row of the `clients` table (`name`, `company_id`) that you insert by hand, its `client_id` (a GUID) is the `ACCESS_KEY` of the site. Everything else of the site is filled in in the dashboard.
 
 ## How things work
 
@@ -93,7 +102,7 @@ Every start checks and fills in what is missing, it never overwrites anything:
 ### Lists: pages, search, errors
 
 - Every list is paginated: `?page=1&limit=10&search=text` (10 per page by default, 100 at most). The answer is `{ items, meta }`. Search ignores the case and takes `%`, `_` and `\` literally.
-- Every error has the same body: `{ statusCode, error, message, errors?, path, timestamp }`. `message` is one sentence the dashboard can show as it is, `errors` lists every problem of a validation error. Errors of the database (a taken unique value, a missing column) become a readable `409` / `400`, and the text of an unexpected error is never sent out.
+- Every error has the same body: `{ statusCode, error, message, errors?, path, timestamp }`. `message` is one sentence the dashboard can show as it is, `errors` lists every problem of a validation error. Errors of the database (a taken unique value, a missing column) become a readable `409` / `400`. The text of an unexpected error is never sent out in production, only when `ENVIROMENT` is `local` or `development` (`Server error: <the real cause>`), so a developer sees what went wrong.
 
 ### Invitations (the only way to register)
 
@@ -138,6 +147,38 @@ What is remembered (tables `purchase_imports` and `purchase_import_items`): who 
 
 The AI lives in `src/ai`: `AiService` (limits and retries) and `providers/gemini.provider.ts`. The model, 2 requests at a time and 3 retries (with 1, 2 and 4 seconds in between, for `429` and `5xx`) are constants in `src/ai/ai.constants.ts`, the only setting from the environment is `GEMINI_API_KEY`. No key, a wrong key or no quota gives `503`, any other failure `502`.
 
+### Pictures (Cloudflare R2)
+
+- A picture is made into a **WebP** (quality 80, EXIF rotation applied, metadata dropped, never enlarged) with `sharp`, and uploaded to R2. Upload limit 5 MB. A file that is not an image gives `400`.
+- Every picture is a row of the `images` table: `key`, public `url`, owner company, `mimeType`, `size`, `width`, `height`, `altText`. A drink or a site points to it, the old picture is deleted when it is replaced.
+- **Folders in the bucket**: `<production|local>/company-<name>-<id>/...`. The top folder is `production` only when `ENVIROMENT=production`, everything else writes to `local`, so testing never touches the real pictures.
+  - drinks: `.../drinks/<drinkId>/<time>.webp` (at most 1200 px), `PUT` and `DELETE drinks/:id/image` (admin).
+  - a site: `.../client/<general|hero|story|promo|seo>/<time>.webp`. Biggest side: logo 600, hero 2000, story 1200, promo 1200, sharing picture (`og`) 1200.
+- Every upload has a new name, so a browser or a CDN never shows an old picture.
+- Code: `src/storage` (`StorageService` talks to R2, `ImageOptimizerService`, `ImagesService` keeps the file and the row together).
+
+### White label sites (`clients`)
+
+A **client** is the public site of a company. The `client_id` is a GUID and it is the `ACCESS_KEY` the site sends in the header `X-Access-Key`.
+
+**Status.** A site is a `draft` until the admin publishes it. A draft site shows only a "coming soon" page and is hidden from Google. `POST /website/publish` works only when the site is **complete**, otherwise `400` lists what is missing (`GET /website` also returns `completeness.missing`). Needed: all general info (name, city, address, phone, Instagram, opening hours) and the logo, every text of hero, featured, story and promo, the pictures of hero, story and promo, at least one recommended drink, and the SEO texts and the sharing picture. `POST /website/unpublish` takes it back to a draft.
+
+**What the admin edits** (`GET`/`PATCH /website`, pictures `PUT`/`DELETE /website/images/:slot` with the slots `logo`, `hero`, `story`, `promo`, `og`):
+
+- general info in columns: city, address, phone, Instagram, opening hours (one day per line, up to 500 characters),
+- the texts of the sections in the `sections` column (JSON): `hero`, `featured` (title, button and the picked drinks), `story`, `promo`, `seo` (title and description of the site and of the menu page: 70 and 160 characters at most),
+- the pictures as rows of `images` (`logo`, `hero`, `story`, `promo`, `og`).
+
+A form of one tab sends only its own fields. **A field that is sent can not be empty** (`400`), the phone and the Instagram address are checked. The picked drinks have to belong to the company. The messages from the contact form are `GET /website/contacts` (paginated, newest first). A company can have more sites, the oldest one is managed. A company without a site gets `404` from `GET /website` (the dashboard hides the menu item then).
+
+**What the site reads (no login, header `X-Access-Key`).** A missing or unknown key is `401`.
+
+- `GET /public/site`: status, general info, every section with its texts and pictures, the recommended drinks and the SEO data. A text that is not filled in is `null`.
+- `GET /public/drinks?page=&limit=`: the drinks of the company (name, price, in stock or not, picture), nothing about warehouses or stock numbers.
+- `POST /public/contact`: saves a message in `clients_contacted_by` (name and phone are required, email and message are not). Limited to **5 per minute** per address (`@nestjs/throttler`).
+
+**Fresh content.** The site keeps what it reads in a cache. After the admin saves something the API calls `POST <APP_CLIENT>/api/revalidate` (header `x-revalidate-secret`, `REVALIDATE_SECRET`) of every address in `APP_CLIENT`, so the change shows at once. If a site does not answer, the request of the admin still succeeds (`SiteRevalidationService`).
+
 ### Low stock email
 
 Every day at 8:00 (Belgrade time), on a production server only, every employee of every company gets one email with what is low: red (has to be bought again) and orange (warning), the emptiest first, in the language of the person. Nothing is sent to a company that has nothing low. An admin can send it now with `POST /stock-alerts/digest`.
@@ -160,11 +201,13 @@ Everything is under `/api`. All need a login except where it says public.
 | Invitations | `POST invitations` (admin), `GET invitations` (admin), `POST invitations/:id/resend` (admin), `GET invitations/:id/valid` (public) |
 | Companies | `GET companies`, `GET companies/:id`, `GET companies/:id/users` (admin), `POST companies` (super admin), `PATCH companies/:id` (admin), `DELETE companies/:id` (super admin) |
 | Warehouses | `GET warehouses`, `GET warehouses/:id`, `POST` `PATCH` `DELETE` (admin, with `isDefault`) |
-| Drinks | `GET drinks` (`?warehouseId=` `?stockLevel=` `?search=`), `GET drinks/:id`, `POST` `PATCH` `DELETE` (admin) |
+| Drinks | `GET drinks` (`?warehouseId=` `?stockLevel=` `?search=`), `GET drinks/:id`, `POST` `PATCH` `DELETE` (admin), `PUT` / `DELETE drinks/:id/image` (admin, the picture of a drink) |
 | Customers | `GET customers`, `GET customers/options`, `GET customers/:id`, `POST` `PATCH` `DELETE` (admin) |
 | Proformas | `GET proformas`, `GET proformas/:id`, `POST proformas`, `PATCH proformas/:id` (admin), `GET proformas/:id/pdf`, `POST proformas/:id/return` (admin) |
 | Purchase import | all admin: `POST purchase-import/parse`, `POST purchase-import/apply`, `GET purchase-import`, `GET purchase-import/:id`, `DELETE purchase-import/:id` |
 | Stock alerts | `POST stock-alerts/digest` (admin) |
+| Website | all admin: `GET website`, `PATCH website`, `PUT` / `DELETE website/images/:slot`, `POST website/publish`, `POST website/unpublish`, `GET website/contacts` |
+| Public (header `X-Access-Key`) | `GET public/site`, `GET public/drinks`, `POST public/contact` |
 
 ## Project structure
 
@@ -175,7 +218,9 @@ src/
   invitations/       invite and validate
   companies/         companies and their users
   warehouses/        warehouses (default one)
-  drinks/            drinks
+  drinks/            drinks (with their picture)
+  clients/           white label sites: admin (website), public routes, contact messages, publish
+  storage/           Cloudflare R2, image optimization (WebP), the `images` table
   customers/         customers
   proformas/         proformas, stock, return
   purchase-import/   import goods from a document: parse, apply, history
@@ -212,7 +257,7 @@ Changes of the database go through migrations in `src/migrations` (TypeORM, file
 ## Tests
 
 ```bash
-pnpm test          # all tests, about 650, a few seconds
+pnpm test          # all tests, about 760, a few seconds
 pnpm test:watch    # re-run on every change
 pnpm test:cov      # with the coverage
 ```
@@ -228,7 +273,7 @@ When you add a feature: test the happy path, every thrown error, and the rule th
 | Build | default (`pnpm install`, `pnpm build`) |
 | **Pre-deploy command** | `pnpm test && pnpm migration:run` |
 | Start | default (`pnpm start`, that is `node dist/main`) |
-| Variables | all from the table above, with `ENVIROMENT=production`, a real `APP_DASHBOARD`, `BREVO_*`, `GEMINI_API_KEY` |
+| Variables | all from the table above, with `ENVIROMENT=production`, a real `APP_DASHBOARD`, the domains of the sites in `APP_CLIENT`, `BREVO_*`, `GEMINI_API_KEY`, `R2_*`, `REVALIDATE_SECRET` |
 
 The pre-deploy command runs between the build and the start: if a test or a migration fails the new version is not started and the old one keeps running. **Do not put it in "Custom Start Command"**, then the container runs the tests and exits and the API never starts. Alternatively run the tests on GitHub (a workflow) and turn on **Wait for CI** on Railway.
 
@@ -245,6 +290,7 @@ The pre-deploy command runs between the build and the start: if a test or a migr
 
 ## Good to know
 
+- **`sharp` is pinned to 0.34.** Version 0.35 has a different CommonJS export that does not work without `esModuleInterop`. It is imported as `import * as sharp from 'sharp'`.
 - **Restart after adding a dependency.** `pnpm start:dev` decides at startup which packages are not bundled. A package installed while it runs gets bundled and breaks (this happened with `pdfkit`). Stop it and start it again.
 - **Enum columns need an explicit type**, like `@Column({ type: 'varchar', ... })`. The webpack build loses the enum type and TypeORM fails with `Data type "Object" is not supported`.
 - **Test with the real build** when something looks different from production: `pnpm build` and `node dist/main`, not only `ts-node`.
