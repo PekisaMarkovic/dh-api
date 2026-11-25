@@ -65,5 +65,11 @@ export const WEBSITE_SLOT_CONFIG: Record<
 };
 
 export const MAX_FEATURED_DRINKS = 10;
-/** how many drinks the "from our offer" section shows when none were picked */
-export const DEFAULT_FEATURED_DRINKS = 5;
+/** how many drinks the "from our offer" section shows when none were picked (even, the site shows them in pairs) */
+export const DEFAULT_FEATURED_DRINKS = 6;
+
+/** The site shows the recommended drinks in pairs: an odd list loses its last drink (a single drink stays) */
+export const evenFeatured = <T>(drinks: T[]): T[] =>
+  drinks.length > 1
+    ? drinks.slice(0, drinks.length - (drinks.length % 2))
+    : drinks;

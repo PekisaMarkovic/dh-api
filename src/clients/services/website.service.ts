@@ -52,7 +52,7 @@ const IMAGE_RELATIONS = {
 
 /** The site as the dashboard gets it: the row, its pictures and the names of the picked drinks */
 export type WebsiteDto = Client & {
-  featuredDrinks: { drinkId: number; name: string }[];
+  featuredDrinks: { drinkId: number; name: string; imageUrl: string | null }[];
   /** what is still missing before the site can be published */
   completeness: WebsiteCompleteness;
 };
@@ -131,7 +131,7 @@ export class WebsiteService {
     return this.findOne(user);
   }
 
-  /** The names of the picked drinks, in the picked order (a deleted drink is skipped) */
+  /** The names and images of the picked drinks, in the picked order (a deleted drink is skipped) */
   private async featuredDrinks(client: Client) {
     const ids = client.sections?.featured?.drinkIds ?? [];
 
@@ -147,7 +147,11 @@ export class WebsiteService {
     return ids
       .map((id) => byId.get(id))
       .filter((drink): drink is Drink => !!drink)
-      .map((drink) => ({ drinkId: drink.drinkId, name: drink.name }));
+      .map((drink) => ({
+        drinkId: drink.drinkId,
+        name: drink.name,
+        imageUrl: drink.image?.url ?? null,
+      }));
   }
 
   private async load(user: User): Promise<Client> {
@@ -181,6 +185,13 @@ export class WebsiteService {
     }
 
     if (dto.featured?.drinkIds?.length) {
+      // the site shows the recommended drinks in pairs
+      if (dto.featured.drinkIds.length % 2) {
+        throw new BadRequestException(
+          'Pick an even number of drinks (2, 4, 6, 8 or 10).',
+        );
+      }
+
       await this.assertDrinksBelongToCompany(
         dto.featured.drinkIds,
         client.companyId,

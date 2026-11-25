@@ -87,20 +87,20 @@ describe('WebsiteService', () => {
       );
     });
 
-    it('should add the names of the picked drinks in the picked order', async () => {
+    it('should add the names and images of the picked drinks in the picked order', async () => {
       clientRepository.findOne.mockResolvedValue(
         stored({ sections: { featured: { drinkIds: [6, 5, 99] } } }),
       );
       drinkRepository.find.mockResolvedValue([
-        { drinkId: 5, name: 'FANTA' },
-        { drinkId: 6, name: 'COLA' },
+        { drinkId: 5, name: 'FANTA', image: null },
+        { drinkId: 6, name: 'COLA', image: { url: 'https://img/cola.webp' } },
       ]);
 
       const site = await service.findOne(user);
 
       expect(site.featuredDrinks).toEqual([
-        { drinkId: 6, name: 'COLA' },
-        { drinkId: 5, name: 'FANTA' },
+        { drinkId: 6, name: 'COLA', imageUrl: 'https://img/cola.webp' },
+        { drinkId: 5, name: 'FANTA', imageUrl: null },
       ]);
     });
 
@@ -143,6 +143,13 @@ describe('WebsiteService', () => {
       expect(clientRepository.save.mock.calls[0][0].sections.featured).toEqual({
         drinkIds: [5, 6],
       });
+    });
+
+    it('should refuse an odd number of picked drinks', async () => {
+      await expect(
+        service.update(user, { featured: { drinkIds: [5, 6, 7] } }),
+      ).rejects.toThrow(BadRequestException);
+      expect(clientRepository.save).not.toHaveBeenCalled();
     });
 
     it('should refuse a drink of another company', async () => {

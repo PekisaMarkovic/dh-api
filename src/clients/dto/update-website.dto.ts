@@ -47,7 +47,7 @@ export class FeaturedSectionDto {
 
   @ApiPropertyOptional({
     type: [Number],
-    description: `The picked drinks (at least one, at most ${MAX_FEATURED_DRINKS}), in the order they are shown`,
+    description: `The picked drinks (an even number: 2, 4, ... at most ${MAX_FEATURED_DRINKS}), in the order they are shown`,
   })
   @IsOptional()
   @IsArray()

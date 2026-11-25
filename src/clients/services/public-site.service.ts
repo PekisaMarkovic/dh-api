@@ -4,7 +4,10 @@ import { In, Repository } from 'typeorm';
 import { PublicDrinkDto } from '@/clients/dto/public-drink.dto';
 import { PublicSiteDto, toPublicImage } from '@/clients/dto/public-site.dto';
 import { Client } from '@/clients/entities/client.entity';
-import { DEFAULT_FEATURED_DRINKS } from '@/clients/website.constants';
+import {
+  DEFAULT_FEATURED_DRINKS,
+  evenFeatured,
+} from '@/clients/website.constants';
 import { Drink } from '@/drinks/entities/drink.entity';
 
 /** Builds what a white label site shows, from the `clients` row, its pictures and the picked drinks */
@@ -85,10 +88,13 @@ export class PublicSiteService {
       });
       const byId = new Map(drinks.map((drink) => [drink.drinkId, drink]));
 
-      return drinkIds
-        .map((id) => byId.get(id))
-        .filter((drink): drink is Drink => !!drink)
-        .map((drink) => PublicDrinkDto.from(drink));
+      // a deleted drink is skipped, so the list is made even again
+      return evenFeatured(
+        drinkIds
+          .map((id) => byId.get(id))
+          .filter((drink): drink is Drink => !!drink)
+          .map((drink) => PublicDrinkDto.from(drink)),
+      );
     }
 
     const drinks = await this.drinkRepository.find({
@@ -97,6 +103,6 @@ export class PublicSiteService {
       take: DEFAULT_FEATURED_DRINKS,
     });
 
-    return drinks.map((drink) => PublicDrinkDto.from(drink));
+    return evenFeatured(drinks.map((drink) => PublicDrinkDto.from(drink)));
   }
 }

@@ -116,7 +116,20 @@ describe('PublicSiteService', () => {
     await service.find({ clientId: 'abc' } as Client);
 
     expect(drinkRepository.find).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { companyId: 4 }, take: 5 }),
+      expect.objectContaining({ where: { companyId: 4 }, take: 6 }),
     );
+  });
+
+  it('should show an even number of drinks when a picked one was deleted', async () => {
+    clientRepository.findOneOrFail.mockResolvedValue(
+      full({
+        sections: { featured: { drinkIds: [2, 1, 3, 99] } },
+      } as unknown as Partial<Client>),
+    );
+    drinkRepository.find.mockResolvedValue([drink(1), drink(2), drink(3)]);
+
+    const site = await service.find({ clientId: 'abc' } as Client);
+
+    expect(site.featured.drinks.map((d) => d.drinkId)).toEqual([2, 1]);
   });
 });
