@@ -77,7 +77,7 @@ Every start checks and fills in what is missing, it never overwrites anything:
 3. Makes sure the company **DRINK HOUSE** exists (an older company called NakNak is renamed, and gets the data that is printed on documents if it has none).
 4. Users without a company are attached to it (there is one company for now).
 
-The seeder does **not** make white label sites. A site is a row of the `clients` table (`name`, `company_id`) that you insert by hand, its `client_id` (a GUID) is the `ACCESS_KEY` of the site. Everything else of the site is filled in in the dashboard.
+The seeder does **not** make white label sites. A site is a row of the `clients` table (`name`, `company_id`), its `client_id` (a GUID) is the `ACCESS_KEY` of the site. Make it with the script `scr/create_client.py` in the workspace (`DH/`): put the connection string in it, `python3 scr/create_client.py --dry-run`, then without `--dry-run`. It makes a draft site for company 1 (once, running it again changes nothing) and prints the `ACCESS_KEY`. Until a company has this row the dashboard does not show "Web sajt". Everything else of the site is filled in in the dashboard.
 
 ## How things work
 
