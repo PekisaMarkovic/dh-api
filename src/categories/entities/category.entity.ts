@@ -29,6 +29,15 @@ export class Category extends AuditEntity {
   @Column({ length: 100 })
   name: string;
 
+  @ApiProperty({
+    example: 'pivo',
+    description:
+      'The name in the address of the site (/karta-pica/pivo), unique in the company, made from the name',
+  })
+  // the default only lets synchronize add the column to the rows that exist, the migration fills it
+  @Column({ length: 120, default: '' })
+  slug: string;
+
   @ApiProperty()
   @Column({ name: 'company_id' })
   companyId: number;

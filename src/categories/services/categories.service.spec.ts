@@ -191,7 +191,24 @@ describe('CategoriesService', () => {
       const result = await service.create({ name: 'Pivo' }, user);
 
       expect(companiesService.assertCanAccess).toHaveBeenCalledWith(user, 1);
-      expect(result).toEqual({ name: 'Pivo', companyId: 1 });
+      expect(result).toEqual({ name: 'Pivo', companyId: 1, slug: 'pivo' });
+    });
+
+    it('should make the slug from the name, without diacritics', async () => {
+      const result = await service.create({ name: 'Točeno pivo' }, user);
+
+      expect(result.slug).toBe('toceno-pivo');
+    });
+
+    it('should add a number to a slug that another category of the company has', async () => {
+      categoryRepository.find.mockResolvedValue([
+        category({ categoryId: 1, slug: 'pivo' }),
+        category({ categoryId: 2, slug: 'pivo-2' }),
+      ]);
+
+      const result = await service.create({ name: 'Pivo!' }, user);
+
+      expect(result.slug).toBe('pivo-3');
     });
 
     it('should throw ConflictException when the company already has the name (any case)', async () => {
@@ -229,10 +246,21 @@ describe('CategoriesService', () => {
   describe('update', () => {
     beforeEach(() => categoryRepository.findOne.mockResolvedValue(category()));
 
-    it('should rename the category', async () => {
+    it('should rename the category and make its new slug', async () => {
       const result = await service.update(3, { name: 'Piva' }, user);
 
       expect(result.name).toBe('Piva');
+      expect(result.slug).toBe('piva');
+    });
+
+    it('should keep the slug the category has itself', async () => {
+      categoryRepository.find.mockResolvedValue([
+        category({ categoryId: 3, slug: 'piva' }),
+      ]);
+
+      const result = await service.update(3, { name: 'Piva' }, user);
+
+      expect(result.slug).toBe('piva');
     });
 
     it('should not compare the name with the category itself', async () => {

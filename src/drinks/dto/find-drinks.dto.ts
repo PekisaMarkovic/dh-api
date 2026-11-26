@@ -1,3 +1,4 @@
+import { applyDecorators } from '@nestjs/common';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
@@ -9,6 +10,28 @@ import {
   Min,
 } from 'class-validator';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
+
+/** ?categoryIds=1,4: only the drinks in any of these categories (the dashboard and the site) */
+export const CategoryIdsQuery = () =>
+  applyDecorators(
+    ApiPropertyOptional({
+      type: String,
+      example: '1,4',
+      description:
+        'Only the drinks in any of these categories (ids separated by commas)',
+    }),
+    IsOptional(),
+    Transform(({ value }: { value: unknown }) =>
+      String(value)
+        .split(',')
+        .filter(Boolean)
+        .map((id) => Number(id)),
+    ),
+    IsArray(),
+    ArrayMaxSize(50),
+    IsInt({ each: true }),
+    Min(1, { each: true }),
+  );
 
 export enum DrinkStockLevel {
   /** orange: below the warning quantity, but not yet critical */
@@ -34,22 +57,6 @@ export class FindDrinksDto extends PaginationQueryDto {
   @IsEnum(DrinkStockLevel)
   stockLevel?: DrinkStockLevel;
 
-  @ApiPropertyOptional({
-    type: String,
-    example: '1,4',
-    description:
-      'Only the drinks in any of these categories (ids separated by commas)',
-  })
-  @IsOptional()
-  @Transform(({ value }: { value: unknown }) =>
-    String(value)
-      .split(',')
-      .filter(Boolean)
-      .map((id) => Number(id)),
-  )
-  @IsArray()
-  @ArrayMaxSize(50)
-  @IsInt({ each: true })
-  @Min(1, { each: true })
+  @CategoryIdsQuery()
   categoryIds?: number[];
 }

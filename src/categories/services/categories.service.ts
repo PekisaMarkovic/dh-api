@@ -5,12 +5,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Not, Raw, Repository } from 'typeorm';
+import { In, Like, Not, Raw, Repository } from 'typeorm';
 import {
   CreateCategoryDto,
   UpdateCategoryDto,
 } from '@/categories/dto/category.dto';
 import { Category } from '@/categories/entities/category.entity';
+import { slugify } from '@/common/helpers';
 import { CompaniesService } from '@/companies/services/companies.service';
 import { User } from '@/users/entities/user.entity';
 
@@ -93,7 +94,11 @@ export class CategoriesService {
     await this.assertNameIsFree(dto.name, companyId);
 
     return this.categoryRepository.save(
-      this.categoryRepository.create({ name: dto.name, companyId }),
+      this.categoryRepository.create({
+        name: dto.name,
+        companyId,
+        slug: await this.uniqueSlug(dto.name, companyId),
+      }),
     );
   }
 
@@ -102,6 +107,12 @@ export class CategoriesService {
 
     if (dto.name !== category.name) {
       await this.assertNameIsFree(dto.name, category.companyId, categoryId);
+      // a new name is a new address (/karta-pica/<slug>)
+      category.slug = await this.uniqueSlug(
+        dto.name,
+        category.companyId,
+        categoryId,
+      );
     }
 
     category.name = dto.name;
@@ -160,6 +171,31 @@ export class CategoriesService {
       ...category,
       drinksCount: byId.get(category.categoryId) ?? 0,
     }));
+  }
+
+  /** "Točeno pivo" -> "toceno-pivo", "toceno-pivo-2" when another category of the company already has it */
+  private async uniqueSlug(
+    name: string,
+    companyId: number,
+    exceptCategoryId?: number,
+  ) {
+    const base = slugify({ text: name, truncate: 100 }) || 'kategorija';
+    const others = await this.categoryRepository.find({
+      where: { companyId, slug: Like(`${base}%`) },
+      select: { categoryId: true, slug: true },
+    });
+    const taken = new Set(
+      others
+        .filter((c) => c.categoryId !== exceptCategoryId)
+        .map((c) => c.slug),
+    );
+    let slug = base;
+
+    for (let n = 2; taken.has(slug); n++) {
+      slug = `${base}-${n}`;
+    }
+
+    return slug;
   }
 
   /**

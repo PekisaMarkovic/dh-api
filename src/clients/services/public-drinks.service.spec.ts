@@ -47,28 +47,38 @@ describe('PublicDrinksService', () => {
     );
   });
 
-  it('should filter by a category with a subquery on drink_categories', async () => {
+  it('should filter by several categories (any of them) with a subquery on drink_categories', async () => {
     (paginate as jest.Mock).mockResolvedValue({ items: [], meta: {} });
 
-    await service.findAll(client, { page: 1, limit: 10, categoryId: 3 });
+    await service.findAll(client, { page: 1, limit: 10, categoryIds: [3, 5] });
 
     const where = (paginate as jest.Mock).mock.calls[0][2].where;
     expect(where.companyId).toBe(4);
     expect(where.drinkId.getSql('"drink_id"')).toBe(
       '"drink_id" IN (SELECT "drink_id" FROM "drink_categories" WHERE "category_id" IN (:...categoryIds))',
     );
-    expect(where.drinkId.objectLiteralParameters).toEqual({ categoryIds: [3] });
+    expect(where.drinkId.objectLiteralParameters).toEqual({
+      categoryIds: [3, 5],
+    });
   });
 
-  it('should return the categories with drinks of the company of the client, only the id, name and count', async () => {
+  it('should return the categories with drinks of the company of the client, only the id, name, slug and count', async () => {
     categoriesService.findWithDrinks.mockResolvedValue([
-      { categoryId: 1, name: 'Pivo', companyId: 4, drinksCount: 12 },
+      {
+        categoryId: 1,
+        name: 'Pivo',
+        slug: 'pivo',
+        companyId: 4,
+        drinksCount: 12,
+      },
     ]);
 
     const result = await service.categories(client);
 
     expect(categoriesService.findWithDrinks).toHaveBeenCalledWith(4);
-    expect(result).toEqual([{ categoryId: 1, name: 'Pivo', drinksCount: 12 }]);
+    expect(result).toEqual([
+      { categoryId: 1, name: 'Pivo', slug: 'pivo', drinksCount: 12 },
+    ]);
   });
 
   it('should show only what the site needs: no warehouse, no stock numbers', async () => {

@@ -9,6 +9,10 @@ describe('slugify', () => {
     expect(slugify({ text: 'Šljivovica Čačak' })).toBe('sljivovica-cacak');
   });
 
+  it('should write đ as dj', () => {
+    expect(slugify({ text: 'Đurđevak' })).toBe('djurdjevak');
+  });
+
   it('should remove the characters that are not letters, digits or a dash', () => {
     expect(slugify({ text: 'Fanta 1.5L!' })).toBe('fanta-15l');
   });

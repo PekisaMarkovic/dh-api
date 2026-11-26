@@ -20,14 +20,14 @@ export class PublicDrinksService {
 
   /**
    * A page of the drinks of the company of the client (all its warehouses), sorted by name,
-   * optionally searched by name and of one category
+   * optionally searched by name and only in some categories (any of them)
    */
   async findAll(client: Client, query: PublicDrinksQueryDto) {
     const pattern = toLikePattern(query.search);
     const base = {
       companyId: client.companyId,
-      ...(query.categoryId
-        ? { drinkId: inCategories([query.categoryId]) }
+      ...(query.categoryIds?.length
+        ? { drinkId: inCategories(query.categoryIds) }
         : {}),
     };
 
@@ -48,9 +48,10 @@ export class PublicDrinksService {
       client.companyId,
     );
 
-    return categories.map(({ categoryId, name, drinksCount }) => ({
+    return categories.map(({ categoryId, name, slug, drinksCount }) => ({
       categoryId,
       name,
+      slug,
       drinksCount,
     }));
   }

@@ -35,7 +35,7 @@ export class PublicDrinksController {
   @Get('categories')
   @ApiOperation({
     summary:
-      'The categories of the company of the client that have drinks, sorted by name, with drinksCount (the filter of the menu)',
+      'The categories of the company of the client that have drinks, sorted by name, with slug and drinksCount (the filter of the menu)',
   })
   categories(@CurrentClient() client: Client) {
     return this.publicDrinksService.categories(client);

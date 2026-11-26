@@ -1,5 +1,10 @@
 function removeDiacritics(str: string): string {
-  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  // đ is a letter of its own, not a d with a mark, NFD would drop it
+  return str
+    .replace(/đ/g, 'dj')
+    .replace(/Đ/g, 'Dj')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
 }
 
 function cleanUpString(text: string): string {

@@ -1,17 +1,8 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Min } from 'class-validator';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
+import { CategoryIdsQuery } from '@/drinks/dto/find-drinks.dto';
 
-/** ?page=1&limit=20&search=text&categoryId=3 */
+/** ?page=1&limit=20&search=text&categoryIds=1,4 */
 export class PublicDrinksQueryDto extends PaginationQueryDto {
-  @ApiPropertyOptional({
-    description:
-      'Only the drinks of this category (see GET public/drinks/categories)',
-  })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  categoryId?: number;
+  @CategoryIdsQuery()
+  categoryIds?: number[];
 }
