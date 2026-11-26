@@ -22,6 +22,9 @@ import { Company } from '@/companies/entities/company.entity';
 import { Warehouse } from '@/warehouses/entities/warehouse.entity';
 import { Drink } from '@/drinks/entities/drink.entity';
 import { Category } from '@/categories/entities/category.entity';
+import { Order } from '@/orders/entities/order.entity';
+import { OrderItem } from '@/orders/entities/order-item.entity';
+import { OrdersModule } from '@/orders/orders.module';
 import { Client } from '@/clients/entities/client.entity';
 import { ClientContactedBy } from '@/clients/entities/client-contacted-by.entity';
 import { ClientsModule } from '@/clients/clients.module';
@@ -64,6 +67,8 @@ import { PurchaseImportModule } from '@/purchase-import/purchase-import.module';
           Warehouse,
           Drink,
           Category,
+          Order,
+          OrderItem,
           Image,
           Client,
           ClientContactedBy,
@@ -86,6 +91,7 @@ import { PurchaseImportModule } from '@/purchase-import/purchase-import.module';
     WarehousesModule,
     DrinksModule,
     CategoriesModule,
+    OrdersModule,
     ClientsModule,
     CustomersModule,
     ProformasModule,

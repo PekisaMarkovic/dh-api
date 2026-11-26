@@ -3,9 +3,13 @@ import { ConfigService } from '@nestjs/config';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { getDashboardUrl } from '@/common/helpers/url.helpers';
+import { lineTotalCents } from '@/common/helpers/money.helpers';
+import { ORDER_TEXTS } from '@/mailer/texts/order.texts';
 import { getStockDigestTexts } from '@/mailer/texts/stock-digest.texts';
 import {
   MailAddress,
+  OrderCancelledMailDto,
+  OrderMailDto,
   SendMailDto,
   StockDigestItem,
   StockDigestMailDto,
@@ -19,6 +23,22 @@ const escapeHtml = (value: string) =>
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+
+const money = new Intl.NumberFormat('sr-Latn-RS', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+const formatMoney = (value: number) => `${money.format(value)} RSD`;
+
+/** "2026-11-27" -> "petak, 27. novembar 2026." (a day without time, so no time zone) */
+const formatDay = (date: string) =>
+  new Intl.DateTimeFormat('sr-Latn-RS', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(`${date}T00:00:00Z`));
 
 /**
  * What the emails of the app are: which template, which subject, which data.
@@ -187,6 +207,162 @@ export class MailerService {
               <td style="padding: 8px 10px; color: #64748b; font-size: 12px; text-align: right">${labels[1]}</td>
               <td style="padding: 8px 10px; color: #64748b; font-size: 12px; text-align: right">${labels[2]}</td>
             </tr>${rows}
+          </table>
+        </td>
+      </tr>`;
+  }
+
+  /**
+   * A new order from the site: one email to every employee (each gets their own, nobody sees the other addresses)
+   * and one to the buyer that the order is received. It does not throw: the order is saved anyway,
+   * a failed email is only logged.
+   */
+  async sendOrderMails(dto: OrderMailDto) {
+    const day = formatDay(dto.pickupDate);
+    const items = this.orderItemsSection(dto);
+    const current_year = `${new Date().getFullYear()}`;
+
+    const toEmployees = dto.recipients.map((recipient) =>
+      this.sendMail(
+        ORDER_TEXTS.newSubject(dto.orderId, dto.fullName, day),
+        [recipient],
+        'order-new.html',
+        {
+          title: ORDER_TEXTS.newTitle(dto.orderId),
+          intro: escapeHtml(ORDER_TEXTS.newIntro(dto.siteName)),
+          details_section: this.orderDetailsSection([
+            [ORDER_TEXTS.deliveryDate, day],
+            [ORDER_TEXTS.buyer, dto.fullName],
+            [ORDER_TEXTS.address, dto.address],
+            [ORDER_TEXTS.phone, dto.phone],
+            [ORDER_TEXTS.email, dto.email],
+          ]),
+          items_section: items,
+          button: ORDER_TEXTS.newButton,
+          link: `${getDashboardUrl(this.configService)}/orders`,
+          fallback: ORDER_TEXTS.fallback,
+          current_year,
+        },
+      ),
+    );
+
+    const toBuyer = this.sendMail(
+      ORDER_TEXTS.receivedSubject(dto.siteName),
+      [{ address: dto.email, name: dto.fullName }],
+      'order-received.html',
+      {
+        brand: escapeHtml(dto.siteName),
+        title: escapeHtml(ORDER_TEXTS.receivedTitle(dto.fullName)),
+        intro: ORDER_TEXTS.receivedIntro(dto.orderId),
+        details_section: this.orderDetailsSection([
+          [ORDER_TEXTS.deliveryDate, day],
+          [ORDER_TEXTS.address, dto.address],
+          [ORDER_TEXTS.phone, dto.phone],
+        ]),
+        items_section: items,
+        outro: escapeHtml(ORDER_TEXTS.receivedOutro(dto.sitePhone)),
+        current_year,
+      },
+    );
+
+    const results = await Promise.allSettled([...toEmployees, toBuyer]);
+
+    results.forEach((result) => {
+      if (result.status === 'rejected') {
+        this.logger.error(
+          `Could not send an email of the order #${dto.orderId}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`,
+        );
+      }
+    });
+  }
+
+  /**
+   * The order was cancelled in the dashboard: the buyer gets an email with the reason (when there is one)
+   * and what was ordered. It does not throw: the status is changed anyway, a failed email is only logged.
+   */
+  async sendOrderCancelledMail(dto: OrderCancelledMailDto) {
+    const details: [string, string][] = [
+      [ORDER_TEXTS.deliveryDate, formatDay(dto.pickupDate)],
+      [ORDER_TEXTS.address, dto.address],
+    ];
+
+    if (dto.reason) {
+      details.push([ORDER_TEXTS.reason, dto.reason]);
+    }
+
+    try {
+      await this.sendMail(
+        ORDER_TEXTS.cancelledSubject(dto.orderId, dto.siteName),
+        [{ address: dto.email, name: dto.fullName }],
+        'order-cancelled.html',
+        {
+          brand: escapeHtml(dto.siteName),
+          title: ORDER_TEXTS.cancelledTitle(dto.orderId),
+          intro: escapeHtml(ORDER_TEXTS.cancelledIntro(dto.fullName)),
+          details_section: this.orderDetailsSection(details),
+          items_section: this.orderItemsSection(dto),
+          outro: escapeHtml(ORDER_TEXTS.cancelledOutro(dto.sitePhone)),
+          current_year: `${new Date().getFullYear()}`,
+        },
+      );
+    } catch (error) {
+      this.logger.error(
+        `Could not send the email of the cancelled order #${dto.orderId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /** Label: value rows of an order (the values are typed by the buyer, so they are escaped) */
+  private orderDetailsSection(rows: [string, string][]) {
+    const lines = rows
+      .map(
+        ([label, value]) => `
+            <tr>
+              <td style="padding: 6px 0; color: #64748b; width: 40%">${label}</td>
+              <td style="padding: 6px 0; font-weight: 600">${escapeHtml(value)}</td>
+            </tr>`,
+      )
+      .join('');
+
+    return `
+      <tr>
+        <td style="padding: 16px 32px 0">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family: Helvetica, Arial, sans-serif; font-size: 14px; color: #334155">${lines}
+          </table>
+        </td>
+      </tr>`;
+  }
+
+  /** The drinks of an order with their amounts and the total */
+  private orderItemsSection(dto: Pick<OrderMailDto, 'items' | 'total'>) {
+    const cell = 'padding: 8px 10px; border-bottom: 1px solid #e2e4e9;';
+    const head = 'padding: 8px 10px; color: #64748b; font-size: 12px;';
+    const rows = dto.items
+      .map(
+        (item) => `
+            <tr>
+              <td style="${cell}">${escapeHtml(item.name)}</td>
+              <td style="${cell} text-align: right">${item.quantity}</td>
+              <td style="${cell} text-align: right; white-space: nowrap">${formatMoney(item.unitPrice)}</td>
+              <td style="${cell} text-align: right; white-space: nowrap">${formatMoney(lineTotalCents(item.unitPrice, item.quantity) / 100)}</td>
+            </tr>`,
+      )
+      .join('');
+
+    return `
+      <tr>
+        <td style="padding: 16px 32px 0">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border: 1px solid #e2e4e9; border-radius: 6px; font-family: Helvetica, Arial, sans-serif; font-size: 14px; color: #334155">
+            <tr style="background-color: #f6f8fa">
+              <td style="${head}">${ORDER_TEXTS.drink}</td>
+              <td style="${head} text-align: right">${ORDER_TEXTS.quantity}</td>
+              <td style="${head} text-align: right">${ORDER_TEXTS.price}</td>
+              <td style="${head} text-align: right">${ORDER_TEXTS.amount}</td>
+            </tr>${rows}
+            <tr>
+              <td colspan="3" style="padding: 10px; font-weight: 700">${ORDER_TEXTS.total}</td>
+              <td style="padding: 10px; text-align: right; font-weight: 700; white-space: nowrap">${formatMoney(dto.total)}</td>
+            </tr>
           </table>
         </td>
       </tr>`;

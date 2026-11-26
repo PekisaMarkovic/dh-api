@@ -3,11 +3,13 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CategoriesModule } from '@/categories/categories.module';
 import { CompaniesModule } from '@/companies/companies.module';
+import { OrdersModule } from '@/orders/orders.module';
 import { Client } from '@/clients/entities/client.entity';
 import { ClientContactedBy } from '@/clients/entities/client-contacted-by.entity';
 import { Drink } from '@/drinks/entities/drink.entity';
 import { PublicContactController } from '@/clients/controllers/public-contact.controller';
 import { PublicDrinksController } from '@/clients/controllers/public-drinks.controller';
+import { PublicOrdersController } from '@/clients/controllers/public-orders.controller';
 import { PublicSiteController } from '@/clients/controllers/public-site.controller';
 import { WebsiteController } from '@/clients/controllers/website.controller';
 import { ClientAccessGuard } from '@/clients/guards/client-access.guard';
@@ -27,9 +29,11 @@ import { StorageModule } from '@/storage/storage.module';
     CompaniesModule,
     StorageModule,
     CategoriesModule,
+    OrdersModule,
   ],
   controllers: [
     PublicDrinksController,
+    PublicOrdersController,
     PublicContactController,
     PublicSiteController,
     WebsiteController,

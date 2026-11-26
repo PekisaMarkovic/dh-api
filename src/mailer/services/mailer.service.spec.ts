@@ -263,4 +263,119 @@ describe('MailerService', () => {
       );
     });
   });
+
+  describe('sendOrderMails', () => {
+    const order = {
+      orderId: 12,
+      fullName: 'Petar <b>Petrović</b>',
+      email: 'petar@example.com',
+      phone: '+381 64 123 4567',
+      address: 'Bulevar <b>1</b>, Beograd',
+      pickupDate: '2026-11-27',
+      total: 401,
+      items: [
+        { name: 'HEINEKEN 0.25L', quantity: 2, unitPrice: 150.5 },
+        { name: 'COCA <i>COLA</i>', quantity: 1, unitPrice: 99.999 },
+      ],
+      siteName: 'Drink House',
+      sitePhone: '+381 15 000',
+      recipients: [
+        { address: 'ana@dh.rs', name: 'Ana' },
+        { address: 'marko@dh.rs', name: 'Marko' },
+      ],
+    };
+
+    it('should send one email to every employee and one to the buyer', async () => {
+      await service.sendOrderMails(order);
+
+      expect(brevoService.send).toHaveBeenCalledTimes(3);
+      expect(mailTo('ana@dh.rs')!.subject).toContain('Nova porudžbina #12');
+      expect(mailTo('marko@dh.rs')).toBeDefined();
+      expect(mailTo('petar@example.com')!.subject).toBe(
+        'Porudžbina je primljena: Drink House',
+      );
+    });
+
+    it('should write the day, the drinks, the amounts and the total', async () => {
+      await service.sendOrderMails(order);
+
+      const html = mailTo('petar@example.com')!.html;
+      expect(html).toContain('27. novembar 2026.');
+      expect(html).toContain('HEINEKEN 0.25L');
+      // 2 x 150,50
+      expect(html).toContain('301,00 RSD');
+      expect(html).toContain('401,00 RSD');
+      expect(html).toContain('+381 15 000');
+      // the courier delivers it there, escaped like everything the buyer typed
+      expect(html).toContain('Bulevar &lt;b&gt;1&lt;/b&gt;, Beograd');
+      expect(mailTo('ana@dh.rs')!.html).toContain('Adresa za dostavu');
+    });
+
+    it('should link the employees to the orders in the dashboard', async () => {
+      await service.sendOrderMails(order);
+
+      expect(mailTo('ana@dh.rs')!.html).toContain(
+        'https://app.drinkhouse.rs/orders',
+      );
+    });
+
+    it('should escape what the buyer typed and the names of the drinks', async () => {
+      await service.sendOrderMails(order);
+
+      for (const address of ['ana@dh.rs', 'petar@example.com']) {
+        const html = mailTo(address)!.html;
+        expect(html).not.toContain('<b>Petrović</b>');
+        expect(html).not.toContain('<i>COLA</i>');
+        expect(html).toContain('COCA &lt;i&gt;COLA&lt;/i&gt;');
+      }
+    });
+
+    it('should not throw when an email can not be sent', async () => {
+      brevoService.send.mockRejectedValue(new Error('down'));
+
+      await expect(service.sendOrderMails(order)).resolves.toBeUndefined();
+    });
+  });
+
+  describe('sendOrderCancelledMail', () => {
+    const cancelled = {
+      orderId: 12,
+      fullName: 'Petar Petrović',
+      email: 'petar@example.com',
+      phone: '+381 64 123 4567',
+      address: 'Bulevar 1, Beograd',
+      pickupDate: '2026-11-27',
+      total: 301,
+      items: [{ name: 'HEINEKEN 0.25L', quantity: 2, unitPrice: 150.5 }],
+      siteName: 'Drink House',
+      sitePhone: '+381 15 000',
+      reason: 'Nemamo <b>više</b> na stanju.',
+    };
+
+    it('should send the buyer the reason, the day, the address and the drinks', async () => {
+      await service.sendOrderCancelledMail(cancelled);
+
+      const mail = mailTo('petar@example.com')!;
+      expect(mail.subject).toBe('Porudžbina #12 je otkazana: Drink House');
+      expect(mail.html).toContain('Razlog');
+      expect(mail.html).toContain('Nemamo &lt;b&gt;više&lt;/b&gt; na stanju.');
+      expect(mail.html).toContain('Bulevar 1, Beograd');
+      expect(mail.html).toContain('HEINEKEN 0.25L');
+      expect(mail.html).toContain('301,00 RSD');
+    });
+
+    it('should leave out the reason when there is none', async () => {
+      await service.sendOrderCancelledMail({ ...cancelled, reason: null });
+
+      expect(mailTo('petar@example.com')!.html).not.toContain('Razlog');
+    });
+
+    it('should not throw when the email can not be sent', async () => {
+      brevoService.send.mockRejectedValue(new Error('down'));
+
+      await expect(
+        service.sendOrderCancelledMail(cancelled),
+      ).resolves.toBeUndefined();
+    });
+  });
 });
