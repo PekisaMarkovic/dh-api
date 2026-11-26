@@ -1,5 +1,6 @@
 import { paginate } from 'nestjs-typeorm-paginate';
 import { Repository } from 'typeorm';
+import { CategoriesService } from '@/categories/services/categories.service';
 import { Client } from '@/clients/entities/client.entity';
 import { PublicDrinksService } from '@/clients/services/public-drinks.service';
 import { Drink } from '@/drinks/entities/drink.entity';
@@ -12,9 +13,16 @@ jest.mock('nestjs-typeorm-paginate', () => ({
 describe('PublicDrinksService', () => {
   const client = { clientId: 'x', companyId: 4 } as Client;
   const repository = {} as Repository<Drink>;
-  const service = new PublicDrinksService(repository);
+  const categoriesService = { findWithDrinks: jest.fn() };
+  const service = new PublicDrinksService(
+    repository,
+    categoriesService as unknown as CategoriesService,
+  );
 
-  beforeEach(() => (paginate as jest.Mock).mockReset());
+  beforeEach(() => {
+    (paginate as jest.Mock).mockReset();
+    categoriesService.findWithDrinks.mockReset();
+  });
 
   it('should return only the drinks of the company of the client, by name', async () => {
     (paginate as jest.Mock).mockResolvedValue({ items: [], meta: {} });
@@ -37,6 +45,30 @@ describe('PublicDrinksService', () => {
     expect(where).toEqual(
       expect.objectContaining({ companyId: 4, name: expect.anything() }),
     );
+  });
+
+  it('should filter by a category with a subquery on drink_categories', async () => {
+    (paginate as jest.Mock).mockResolvedValue({ items: [], meta: {} });
+
+    await service.findAll(client, { page: 1, limit: 10, categoryId: 3 });
+
+    const where = (paginate as jest.Mock).mock.calls[0][2].where;
+    expect(where.companyId).toBe(4);
+    expect(where.drinkId.getSql('"drink_id"')).toBe(
+      '"drink_id" IN (SELECT "drink_id" FROM "drink_categories" WHERE "category_id" IN (:...categoryIds))',
+    );
+    expect(where.drinkId.objectLiteralParameters).toEqual({ categoryIds: [3] });
+  });
+
+  it('should return the categories with drinks of the company of the client, only the id, name and count', async () => {
+    categoriesService.findWithDrinks.mockResolvedValue([
+      { categoryId: 1, name: 'Pivo', companyId: 4, drinksCount: 12 },
+    ]);
+
+    const result = await service.categories(client);
+
+    expect(categoriesService.findWithDrinks).toHaveBeenCalledWith(4);
+    expect(result).toEqual([{ categoryId: 1, name: 'Pivo', drinksCount: 12 }]);
   });
 
   it('should show only what the site needs: no warehouse, no stock numbers', async () => {

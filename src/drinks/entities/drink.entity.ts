@@ -3,11 +3,14 @@ import {
   Entity,
   Index,
   JoinColumn,
+  JoinTable,
+  ManyToMany,
   ManyToOne,
   OneToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
+import { Category } from '@/categories/entities/category.entity';
 import { AuditEntity } from '@/common/entities/audit.entity';
 import { Company } from '@/companies/entities/company.entity';
 import { Image } from '@/storage/entities/image.entity';
@@ -99,4 +102,28 @@ export class Drink extends AuditEntity {
   @ManyToOne(() => Company, (company) => company.drinks, { nullable: false })
   @JoinColumn({ name: 'company_id' })
   company: Company;
+
+  @ApiProperty({
+    type: () => [Category],
+    required: false,
+    description:
+      'The categories of the drink (loaded by the lists and the detail)',
+  })
+  // drink_categories: one row per drink and category, removed with the drink or the category
+  @ManyToMany(() => Category)
+  // the names are the same as in the migration CreateDrinkCategories, so synchronize changes nothing
+  @JoinTable({
+    name: 'drink_categories',
+    joinColumn: {
+      name: 'drink_id',
+      referencedColumnName: 'drinkId',
+      foreignKeyConstraintName: 'FK_drink_categories_drink',
+    },
+    inverseJoinColumn: {
+      name: 'category_id',
+      referencedColumnName: 'categoryId',
+      foreignKeyConstraintName: 'FK_drink_categories_category',
+    },
+  })
+  categories?: Category[];
 }

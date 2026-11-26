@@ -4,8 +4,8 @@ import { Public } from '@/auth/decorators';
 import { CurrentClient } from '@/clients/decorators/current-client.decorator';
 import { Client } from '@/clients/entities/client.entity';
 import { ClientAccessGuard } from '@/clients/guards/client-access.guard';
+import { PublicDrinksQueryDto } from '@/clients/dto/public-drinks-query.dto';
 import { PublicDrinksService } from '@/clients/services/public-drinks.service';
-import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 
 /** Routes for the white label sites, no login: the site is known by the GUID of its client */
 @Controller('public/drinks')
@@ -25,7 +25,19 @@ export class PublicDrinksController {
     summary:
       'A page of the drinks of the company of the client, sorted by name (the menu of the site)',
   })
-  findAll(@CurrentClient() client: Client, @Query() query: PaginationQueryDto) {
+  findAll(
+    @CurrentClient() client: Client,
+    @Query() query: PublicDrinksQueryDto,
+  ) {
     return this.publicDrinksService.findAll(client, query);
+  }
+
+  @Get('categories')
+  @ApiOperation({
+    summary:
+      'The categories of the company of the client that have drinks, sorted by name, with drinksCount (the filter of the menu)',
+  })
+  categories(@CurrentClient() client: Client) {
+    return this.publicDrinksService.categories(client);
   }
 }

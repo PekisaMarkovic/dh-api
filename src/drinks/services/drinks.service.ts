@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ILike, Raw, Repository } from 'typeorm';
+import { inCategories } from '@/categories/category.filter';
+import { CategoriesService } from '@/categories/services/categories.service';
 import { User } from '@/users/entities/user.entity';
 import { Drink } from '@/drinks/entities/drink.entity';
 import { CompaniesService } from '@/companies/services/companies.service';
@@ -28,6 +30,7 @@ export class DrinksService {
     private readonly storageService: StorageService,
     private readonly imagesService: ImagesService,
     private readonly imageOptimizer: ImageOptimizerService,
+    private readonly categoriesService: CategoriesService,
   ) {}
 
   async findAll(user: User, query: FindDrinksDto) {
@@ -41,6 +44,9 @@ export class DrinksService {
     const base = {
       ...(warehouseId ? { warehouseId } : { companyId: user.companyId ?? -1 }),
       ...this.stockLevelWhere(query.stockLevel),
+      ...(query.categoryIds?.length
+        ? { drinkId: inCategories(query.categoryIds) }
+        : {}),
     };
     const pattern = toLikePattern(query.search);
 
@@ -53,6 +59,7 @@ export class DrinksService {
           ]
         : base,
       order: { name: 'ASC', drinkId: 'ASC' },
+      relations: { categories: true },
     });
 
     return page;
@@ -84,7 +91,10 @@ export class DrinksService {
   }
 
   async findOne(drinkId: number, user?: User) {
-    const drink = await this.drinkRepository.findOne({ where: { drinkId } });
+    const drink = await this.drinkRepository.findOne({
+      where: { drinkId },
+      relations: { categories: true },
+    });
 
     if (!drink) {
       throw new NotFoundException('Drink not found');
@@ -107,8 +117,18 @@ export class DrinksService {
     await this.assertCodeIsFree(dto.code, warehouse.companyId);
     this.assertLevels(dto.warningQuantity ?? 0, dto.criticalQuantity ?? 0);
 
+    const { categoryIds, ...fields } = dto;
+    const categories = await this.categoriesService.findForCompany(
+      categoryIds ?? [],
+      warehouse.companyId,
+    );
+
     return this.drinkRepository.save(
-      this.drinkRepository.create({ ...dto, companyId: warehouse.companyId }),
+      this.drinkRepository.create({
+        ...fields,
+        companyId: warehouse.companyId,
+        categories,
+      }),
     );
   }
 
@@ -124,7 +144,17 @@ export class DrinksService {
       dto.criticalQuantity ?? drink.criticalQuantity,
     );
 
-    Object.assign(drink, dto);
+    const { categoryIds, ...fields } = dto;
+
+    // not sent: the categories stay as they are
+    if (categoryIds !== undefined) {
+      drink.categories = await this.categoriesService.findForCompany(
+        categoryIds,
+        drink.companyId,
+      );
+    }
+
+    Object.assign(drink, fields);
 
     return this.drinkRepository.save(drink);
   }

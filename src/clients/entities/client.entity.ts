@@ -47,6 +47,13 @@ export class Client extends AuditEntity {
   @Column({ name: 'published_at', type: 'timestamp', nullable: true })
   publishedAt: Date | null;
 
+  @ApiProperty({
+    description:
+      'True when the visitors of the site can order drinks. Off by default, for now it is only changed in the database',
+  })
+  @Column({ name: 'is_ordering_allowed', type: 'boolean', default: false })
+  isOrderingAllowed: boolean;
+
   // ---- general info of the site ----
 
   @ApiProperty({ nullable: true, type: String, example: 'Loznica' })

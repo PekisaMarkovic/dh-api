@@ -7,6 +7,7 @@ import {
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { paginate } from 'nestjs-typeorm-paginate';
+import { CategoriesService } from '@/categories/services/categories.service';
 import { CompaniesService } from '@/companies/services/companies.service';
 import { DrinkStockLevel } from '@/drinks/dto/find-drinks.dto';
 import { Drink } from '@/drinks/entities/drink.entity';
@@ -42,6 +43,7 @@ describe('DrinksService', () => {
   };
   let imageOptimizer: { toWebp: jest.Mock };
   let imagesService: { create: jest.Mock; remove: jest.Mock };
+  let categoriesService: { findForCompany: jest.Mock };
 
   const user = { userId: 7, companyId: 1, roles: [] } as unknown as User;
   const query = { page: 1, limit: 10 };
@@ -99,6 +101,11 @@ describe('DrinksService', () => {
     imageOptimizer = {
       toWebp: jest.fn().mockResolvedValue(Buffer.from('webp')),
     };
+    categoriesService = {
+      findForCompany: jest.fn((ids: number[]) =>
+        Promise.resolve(ids.map((categoryId) => ({ categoryId }))),
+      ),
+    };
     (paginate as jest.Mock)
       .mockReset()
       .mockResolvedValue({ items: [], meta: {} });
@@ -112,6 +119,7 @@ describe('DrinksService', () => {
         { provide: StorageService, useValue: storageService },
         { provide: ImageOptimizerService, useValue: imageOptimizer },
         { provide: ImagesService, useValue: imagesService },
+        { provide: CategoriesService, useValue: categoriesService },
       ],
     }).compile();
 
@@ -157,6 +165,39 @@ describe('DrinksService', () => {
         service.findAll(user, { ...query, warehouseId: 9 }),
       ).rejects.toThrow(ForbiddenException);
       expect(paginate).not.toHaveBeenCalled();
+    });
+
+    it('should load the categories of every drink', async () => {
+      await service.findAll(user, query);
+
+      expect((paginate as jest.Mock).mock.calls[0][2].relations).toEqual({
+        categories: true,
+      });
+    });
+
+    it('should filter by several categories (any of them), also together with a search', async () => {
+      await service.findAll(user, {
+        ...query,
+        categoryIds: [3, 4],
+        search: 'fanta',
+      });
+
+      expect(whereOf()).toHaveLength(2);
+      for (const where of whereOf()) {
+        expect(where.companyId).toBe(1);
+        expect(where.drinkId.getSql('"drink_id"')).toContain(
+          '"drink_categories" WHERE "category_id" IN (:...categoryIds)',
+        );
+        expect(where.drinkId.objectLiteralParameters).toEqual({
+          categoryIds: [3, 4],
+        });
+      }
+    });
+
+    it('should not filter by an empty list of categories', async () => {
+      await service.findAll(user, { ...query, categoryIds: [] });
+
+      expect(whereOf()).toEqual({ companyId: 1 });
     });
 
     it('should search the name and the code', async () => {
@@ -256,10 +297,36 @@ describe('DrinksService', () => {
       expect(drinkRepository.create).toHaveBeenCalledWith({
         ...dto,
         companyId: 1,
+        categories: [],
       });
       expect(result).toEqual(
         expect.objectContaining({ code: '352', companyId: 1 }),
       );
+    });
+
+    it('should put the drink in the sent categories of its company', async () => {
+      await service.create({ ...dto, categoryIds: [2, 4] }, user);
+
+      expect(categoriesService.findForCompany).toHaveBeenCalledWith([2, 4], 1);
+      expect(drinkRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          categories: [{ categoryId: 2 }, { categoryId: 4 }],
+        }),
+      );
+      expect(drinkRepository.create.mock.calls[0][0]).not.toHaveProperty(
+        'categoryIds',
+      );
+    });
+
+    it('should not save a drink with a category of another company', async () => {
+      categoriesService.findForCompany.mockRejectedValue(
+        new BadRequestException(),
+      );
+
+      await expect(
+        service.create({ ...dto, categoryIds: [99] }, user),
+      ).rejects.toThrow(BadRequestException);
+      expect(drinkRepository.save).not.toHaveBeenCalled();
     });
 
     it('should not add a drink to a warehouse of another company', async () => {
@@ -345,6 +412,39 @@ describe('DrinksService', () => {
       expect(result).toEqual(
         expect.objectContaining({ name: 'FANTA 2L', price: 200, code: '352' }),
       );
+    });
+
+    it('should replace the categories when they are sent', async () => {
+      drinkRepository.findOne.mockResolvedValue(
+        storedDrink({ categories: [{ categoryId: 1 }] as Drink['categories'] }),
+      );
+
+      const result = await service.update(3, { categoryIds: [5] }, user);
+
+      expect(categoriesService.findForCompany).toHaveBeenCalledWith([5], 1);
+      expect(result.categories).toEqual([{ categoryId: 5 }]);
+      expect(result).not.toHaveProperty('categoryIds');
+    });
+
+    it('should keep the categories when they are not sent', async () => {
+      drinkRepository.findOne.mockResolvedValue(
+        storedDrink({ categories: [{ categoryId: 1 }] as Drink['categories'] }),
+      );
+
+      const result = await service.update(3, { name: 'FANTA 2L' }, user);
+
+      expect(categoriesService.findForCompany).not.toHaveBeenCalled();
+      expect(result.categories).toEqual([{ categoryId: 1 }]);
+    });
+
+    it('should remove all the categories with an empty list', async () => {
+      drinkRepository.findOne.mockResolvedValue(
+        storedDrink({ categories: [{ categoryId: 1 }] as Drink['categories'] }),
+      );
+
+      const result = await service.update(3, { categoryIds: [] }, user);
+
+      expect(result.categories).toEqual([]);
     });
 
     it('should not check the code when it did not change', async () => {

@@ -1,6 +1,13 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  Min,
+} from 'class-validator';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 
 export enum DrinkStockLevel {
@@ -26,4 +33,23 @@ export class FindDrinksDto extends PaginationQueryDto {
   @IsOptional()
   @IsEnum(DrinkStockLevel)
   stockLevel?: DrinkStockLevel;
+
+  @ApiPropertyOptional({
+    type: String,
+    example: '1,4',
+    description:
+      'Only the drinks in any of these categories (ids separated by commas)',
+  })
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    String(value)
+      .split(',')
+      .filter(Boolean)
+      .map((id) => Number(id)),
+  )
+  @IsArray()
+  @ArrayMaxSize(50)
+  @IsInt({ each: true })
+  @Min(1, { each: true })
+  categoryIds?: number[];
 }

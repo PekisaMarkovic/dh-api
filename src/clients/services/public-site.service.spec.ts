@@ -12,6 +12,7 @@ describe('PublicSiteService', () => {
     ({
       clientId: 'abc',
       status: 'draft',
+      isOrderingAllowed: false,
       companyId: 4,
       name: 'Drink House',
       city: 'Loznica',
@@ -102,6 +103,16 @@ describe('PublicSiteService', () => {
       },
     });
     expect(JSON.stringify(site)).not.toContain('secret');
+  });
+
+  it('should tell the site whether the visitors can order', async () => {
+    clientRepository.findOneOrFail.mockResolvedValue(
+      full({ isOrderingAllowed: true }),
+    );
+
+    const site = await service.find({ clientId: 'abc' } as Client);
+
+    expect(site.isOrderingAllowed).toBe(true);
   });
 
   it('should show the picked drinks in the picked order and skip a missing one', async () => {

@@ -35,6 +35,7 @@ export class PublicSiteService {
 
     return {
       status: full.status,
+      isOrderingAllowed: full.isOrderingAllowed,
       name: full.name,
       city: full.city,
       address: full.address,

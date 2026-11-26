@@ -12,6 +12,7 @@ import { Invitation } from '@/invitations/entities/invitation.entity';
 import { CompaniesModule } from '@/companies/companies.module';
 import { WarehousesModule } from '@/warehouses/warehouses.module';
 import { DrinksModule } from '@/drinks/drinks.module';
+import { CategoriesModule } from '@/categories/categories.module';
 import { CustomersModule } from '@/customers/customers.module';
 import { StockAlertsModule } from '@/stock-alerts/stock-alerts.module';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -20,6 +21,7 @@ import { useDatabaseSsl } from '@/db/ssl';
 import { Company } from '@/companies/entities/company.entity';
 import { Warehouse } from '@/warehouses/entities/warehouse.entity';
 import { Drink } from '@/drinks/entities/drink.entity';
+import { Category } from '@/categories/entities/category.entity';
 import { Client } from '@/clients/entities/client.entity';
 import { ClientContactedBy } from '@/clients/entities/client-contacted-by.entity';
 import { ClientsModule } from '@/clients/clients.module';
@@ -61,6 +63,7 @@ import { PurchaseImportModule } from '@/purchase-import/purchase-import.module';
           Company,
           Warehouse,
           Drink,
+          Category,
           Image,
           Client,
           ClientContactedBy,
@@ -82,6 +85,7 @@ import { PurchaseImportModule } from '@/purchase-import/purchase-import.module';
     CompaniesModule,
     WarehousesModule,
     DrinksModule,
+    CategoriesModule,
     ClientsModule,
     CustomersModule,
     ProformasModule,

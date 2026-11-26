@@ -1,6 +1,9 @@
 import { ApiProperty, OmitType, PartialType } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayUnique,
+  IsArray,
   IsInt,
   IsNotEmpty,
   IsNumber,
@@ -64,6 +67,21 @@ export class CreateDrinkDto {
   @ApiProperty()
   @IsInt()
   warehouseId: number;
+
+  @ApiProperty({
+    required: false,
+    type: [Number],
+    example: [1, 4],
+    description:
+      'The categories of the drink (categories of its company). On an update the sent list replaces the old one, [] removes all',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @ArrayUnique()
+  @IsInt({ each: true })
+  @Min(1, { each: true })
+  categoryIds?: number[];
 }
 
 export class UpdateDrinkDto extends PartialType(

@@ -69,6 +69,8 @@ export class PublicSiteDto {
     description: 'a draft site shows a "coming soon" page',
   })
   status: ClientStatus;
+  @ApiProperty({ description: 'True when the visitors can order drinks' })
+  isOrderingAllowed: boolean;
   @ApiProperty() name: string;
   @ApiProperty({ nullable: true, type: String }) city: string | null;
   @ApiProperty({ nullable: true, type: String }) address: string | null;

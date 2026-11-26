@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { CategoriesModule } from '@/categories/categories.module';
 import { CompaniesModule } from '@/companies/companies.module';
 import { Client } from '@/clients/entities/client.entity';
 import { ClientContactedBy } from '@/clients/entities/client-contacted-by.entity';
@@ -25,6 +26,7 @@ import { StorageModule } from '@/storage/storage.module';
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
     CompaniesModule,
     StorageModule,
+    CategoriesModule,
   ],
   controllers: [
     PublicDrinksController,
