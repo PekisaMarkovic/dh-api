@@ -16,6 +16,9 @@ import { Company } from '@/companies/entities/company.entity';
 import { Image } from '@/storage/entities/image.entity';
 import { Warehouse } from '@/warehouses/entities/warehouse.entity';
 
+/** The most characters of the description of a drink */
+export const DRINK_DESCRIPTION_MAX = 150;
+
 // company_id is denormalized from the warehouse so drinks can be searched per company without a join
 @Index(['companyId', 'name'])
 // the article code is unique inside a company, a deleted drink gives its code free again
@@ -32,6 +35,14 @@ export class Drink extends AuditEntity {
   @ApiProperty()
   @Column({ length: 150 })
   name: string;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: `A short description for the site (the detail of the drink), at most ${DRINK_DESCRIPTION_MAX} characters`,
+  })
+  @Column({ type: 'varchar', length: DRINK_DESCRIPTION_MAX, nullable: true })
+  description: string | null;
 
   @ApiProperty({
     description: 'Article code (sifra artikla)',

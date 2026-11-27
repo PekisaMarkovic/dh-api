@@ -13,6 +13,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { DRINK_DESCRIPTION_MAX } from '@/drinks/entities/drink.entity';
 
 export class CreateDrinkDto {
   @ApiProperty({
@@ -30,6 +31,20 @@ export class CreateDrinkDto {
   @IsNotEmpty()
   @MaxLength(150)
   name: string;
+
+  @ApiProperty({
+    required: false,
+    nullable: true,
+    example: 'Lagano pilsner pivo, osvežavajuće i pitko.',
+    description: `A short description for the site, at most ${DRINK_DESCRIPTION_MAX} characters. Empty removes it`,
+  })
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim() || null : value,
+  )
+  @IsOptional()
+  @IsString()
+  @MaxLength(DRINK_DESCRIPTION_MAX)
+  description?: string | null;
 
   @ApiProperty({ example: 2304.5, description: 'Up to 3 decimals' })
   @IsNumber({ maxDecimalPlaces: 3 })

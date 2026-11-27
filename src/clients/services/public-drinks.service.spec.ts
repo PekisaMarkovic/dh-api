@@ -113,6 +113,7 @@ describe('PublicDrinksService', () => {
       {
         drinkId: 1,
         name: 'FANTA',
+        description: null,
         price: 150,
         inStock: true,
         image: {
@@ -122,7 +123,14 @@ describe('PublicDrinksService', () => {
           height: 600,
         },
       },
-      { drinkId: 2, name: 'COLA', price: 100, inStock: false, image: null },
+      {
+        drinkId: 2,
+        name: 'COLA',
+        description: null,
+        price: 100,
+        inStock: false,
+        image: null,
+      },
     ]);
     expect(JSON.stringify(result)).not.toContain('secret');
     expect(result.meta).toEqual({ totalPages: 1 });

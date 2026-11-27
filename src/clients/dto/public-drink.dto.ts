@@ -23,6 +23,13 @@ export class PublicDrinkDto {
   @ApiProperty()
   name: string;
 
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: 'A short description (at most 150 characters)',
+  })
+  description: string | null;
+
   @ApiProperty({ description: 'Price per unit' })
   price: number;
 
@@ -36,6 +43,7 @@ export class PublicDrinkDto {
     return {
       drinkId: drink.drinkId,
       name: drink.name,
+      description: drink.description ?? null,
       price: drink.price,
       inStock: drink.quantity > 0,
       image: drink.image
