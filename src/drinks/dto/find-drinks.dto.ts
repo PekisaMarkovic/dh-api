@@ -40,6 +40,11 @@ export enum DrinkStockLevel {
   CRITICAL = 'critical',
 }
 
+export enum DrinkSort {
+  PRICE_ASC = 'price_asc',
+  PRICE_DESC = 'price_desc',
+}
+
 export class FindDrinksDto extends PaginationQueryDto {
   @ApiPropertyOptional({ description: 'Only the drinks of this warehouse' })
   @IsOptional()
@@ -59,4 +64,12 @@ export class FindDrinksDto extends PaginationQueryDto {
 
   @CategoryIdsQuery()
   categoryIds?: number[];
+
+  @ApiPropertyOptional({
+    enum: DrinkSort,
+    description: 'Sort by price; without it the drinks are sorted by name',
+  })
+  @IsOptional()
+  @IsEnum(DrinkSort)
+  sort?: DrinkSort;
 }

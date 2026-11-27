@@ -9,7 +9,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { paginate } from 'nestjs-typeorm-paginate';
 import { CategoriesService } from '@/categories/services/categories.service';
 import { CompaniesService } from '@/companies/services/companies.service';
-import { DrinkStockLevel } from '@/drinks/dto/find-drinks.dto';
+import { DrinkSort, DrinkStockLevel } from '@/drinks/dto/find-drinks.dto';
 import { Drink } from '@/drinks/entities/drink.entity';
 import { DrinksService } from '@/drinks/services/drinks.service';
 import { User } from '@/users/entities/user.entity';
@@ -206,6 +206,16 @@ describe('DrinksService', () => {
       expect(whereOf()).toHaveLength(2);
       expect(whereOf()[0]).toHaveProperty('name');
       expect(whereOf()[1]).toHaveProperty('code');
+    });
+
+    it('should sort by price, then by name', async () => {
+      await service.findAll(user, { ...query, sort: DrinkSort.PRICE_DESC });
+
+      expect((paginate as jest.Mock).mock.calls[0][2].order).toEqual({
+        price: 'DESC',
+        name: 'ASC',
+        drinkId: 'ASC',
+      });
     });
 
     it('should filter the critical drinks', async () => {

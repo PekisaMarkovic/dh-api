@@ -14,7 +14,11 @@ import { Drink } from '@/drinks/entities/drink.entity';
 import { CompaniesService } from '@/companies/services/companies.service';
 import { WarehousesService } from '@/warehouses/services/warehouses.service';
 import { CreateDrinkDto, UpdateDrinkDto } from '@/drinks/dto/drink.dto';
-import { DrinkStockLevel, FindDrinksDto } from '@/drinks/dto/find-drinks.dto';
+import {
+  DrinkSort,
+  DrinkStockLevel,
+  FindDrinksDto,
+} from '@/drinks/dto/find-drinks.dto';
 import { toLikePattern } from '@/common/helpers';
 import { StorageService } from '@/storage/services/storage.service';
 import { ImagesService } from '@/storage/services/images.service';
@@ -58,7 +62,13 @@ export class DrinksService {
             { ...base, code: ILike(pattern) },
           ]
         : base,
-      order: { name: 'ASC', drinkId: 'ASC' },
+      order: query.sort
+        ? {
+            price: query.sort === DrinkSort.PRICE_DESC ? 'DESC' : 'ASC',
+            name: 'ASC',
+            drinkId: 'ASC',
+          }
+        : { name: 'ASC', drinkId: 'ASC' },
       relations: { categories: true },
     });
 
