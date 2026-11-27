@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseEnumPipe,
   ParseIntPipe,
   Patch,
   Post,
@@ -18,6 +19,7 @@ import {
   ApiBody,
   ApiConsumes,
   ApiOperation,
+  ApiParam,
   ApiTags,
 } from '@nestjs/swagger';
 import { CurrentUser, Roles } from '@/auth/decorators';
@@ -32,6 +34,10 @@ import {
 } from '@/clients/dto/site-pages.dto';
 import { SitePagesService } from '@/clients/services/site-pages.service';
 import { WebsiteService } from '@/clients/services/website.service';
+import {
+  CLIENT_IMAGE_SLOTS,
+  ClientImageSlot,
+} from '@/clients/website.constants';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { IMAGE_MAX_UPLOAD_BYTES } from '@/storage/storage.constants';
 import { User } from '@/users/entities/user.entity';
@@ -93,27 +99,34 @@ export class WebsiteController {
     return this.websiteService.unpublish(user);
   }
 
-  @Put('logo')
+  @Put('images/:slot')
   @ApiOperation({
-    summary: 'Upload the logo. It is saved as a WebP, the old one is replaced',
+    summary:
+      'Upload the logo or the picture of the map (optional, shown instead of the Google map until its cookies are accepted). Saved as a WebP, the old one is replaced',
   })
+  @ApiParam({ name: 'slot', enum: CLIENT_IMAGE_SLOTS })
   @ApiConsumes('multipart/form-data')
   @ApiBody({ schema: IMAGE_BODY })
   @UseInterceptors(
     FileInterceptor('file', { limits: { fileSize: IMAGE_MAX_UPLOAD_BYTES } }),
   )
-  setLogo(
+  setImage(
+    @Param('slot', new ParseEnumPipe(CLIENT_IMAGE_SLOTS)) slot: ClientImageSlot,
     @UploadedFile() file: Express.Multer.File,
     @Body('altText') altText: string | undefined,
     @CurrentUser() user: User,
   ) {
-    return this.websiteService.setLogo(user, file, alt(altText));
+    return this.websiteService.setImage(user, slot, file, alt(altText));
   }
 
-  @Delete('logo')
-  @ApiOperation({ summary: 'Delete the logo' })
-  removeLogo(@CurrentUser() user: User) {
-    return this.websiteService.removeLogo(user);
+  @Delete('images/:slot')
+  @ApiOperation({ summary: 'Delete the logo or the picture of the map' })
+  @ApiParam({ name: 'slot', enum: CLIENT_IMAGE_SLOTS })
+  removeImage(
+    @Param('slot', new ParseEnumPipe(CLIENT_IMAGE_SLOTS)) slot: ClientImageSlot,
+    @CurrentUser() user: User,
+  ) {
+    return this.websiteService.removeImage(user, slot);
   }
 
   // ---- pages ----

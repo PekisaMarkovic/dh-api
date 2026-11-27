@@ -275,8 +275,8 @@ describe('WebsiteService', () => {
 
     it('should tell the site to drop its cache after every change', async () => {
       await service.update(user, { city: 'Beograd' });
-      await service.setLogo(user, file);
-      await service.removeLogo(user);
+      await service.setImage(user, 'logo', file);
+      await service.removeImage(user, 'logo');
       clientRepository.findOne.mockResolvedValue({
         ...stored(),
         status: 'published',
@@ -297,7 +297,7 @@ describe('WebsiteService', () => {
     const file = { buffer: Buffer.from('x') } as Express.Multer.File;
 
     it('should save the logo small, in the client folder general', async () => {
-      await service.setLogo(user, file);
+      await service.setImage(user, 'logo', file);
 
       expect(optimizer.toWebp).toHaveBeenCalledWith(file.buffer, 600);
       expect(storage.clientFolder).toHaveBeenCalledWith(
@@ -322,7 +322,7 @@ describe('WebsiteService', () => {
         stored({ logoImage: old } as Partial<Client>),
       );
 
-      await service.setLogo(user, file);
+      await service.setImage(user, 'logo', file);
 
       expect(images.remove).toHaveBeenCalledWith(old);
     });
@@ -330,7 +330,7 @@ describe('WebsiteService', () => {
     it('should delete the new picture when the database fails', async () => {
       clientRepository.update.mockRejectedValue(new Error('db'));
 
-      await expect(service.setLogo(user, file)).rejects.toThrow('db');
+      await expect(service.setImage(user, 'logo', file)).rejects.toThrow('db');
       expect(images.remove).toHaveBeenCalledWith(
         expect.objectContaining({ imageId: 9 }),
       );
@@ -338,9 +338,27 @@ describe('WebsiteService', () => {
 
     it('should reject a request without a file', async () => {
       await expect(
-        service.setLogo(user, undefined as unknown as Express.Multer.File),
+        service.setImage(
+          user,
+          'logo',
+          undefined as unknown as Express.Multer.File,
+        ),
       ).rejects.toThrow(BadRequestException);
       expect(images.create).not.toHaveBeenCalled();
+    });
+
+    it('should save the picture of the map bigger, in the same folder, in its own column', async () => {
+      await service.setImage(user, 'map', file);
+
+      expect(optimizer.toWebp).toHaveBeenCalledWith(file.buffer, 1200);
+      expect(storage.clientFolder).toHaveBeenCalledWith(
+        expect.anything(),
+        'general',
+      );
+      expect(clientRepository.update).toHaveBeenCalledWith(
+        { clientId: 'abc' },
+        { mapImageId: 9 },
+      );
     });
 
     it('should remove the logo', async () => {
@@ -349,7 +367,7 @@ describe('WebsiteService', () => {
         stored({ logoImage: old } as Partial<Client>),
       );
 
-      await service.removeLogo(user);
+      await service.removeImage(user, 'logo');
 
       expect(clientRepository.update).toHaveBeenCalledWith(
         { clientId: 'abc' },

@@ -86,6 +86,13 @@ export class PublicSiteDto {
   @ApiProperty({ type: () => PublicDrinkImageDto, nullable: true })
   logo: PublicDrinkImageDto | null;
   @ApiProperty({
+    type: () => PublicDrinkImageDto,
+    nullable: true,
+    description:
+      'A picture of the map, shown instead of the Google map until its cookies are accepted. Null: the site draws its own',
+  })
+  mapImage: PublicDrinkImageDto | null;
+  @ApiProperty({
     type: () => [PublicPageDto],
     description: 'The published pages in the order of the menu',
   })

@@ -19,8 +19,8 @@ import {
 } from '@/clients/website.completeness';
 import {
   DEFAULT_PAGES,
-  LOGO_FOLDER,
-  LOGO_MAX_SIDE,
+  CLIENT_IMAGE_CONFIG,
+  ClientImageSlot,
 } from '@/clients/website.constants';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { Drink } from '@/drinks/entities/drink.entity';
@@ -216,7 +216,7 @@ export class WebsiteService {
     const client = user.companyId
       ? await this.clientRepository.findOne({
           where: { companyId: user.companyId },
-          relations: { logoImage: true },
+          relations: { logoImage: true, mapImage: true },
           order: { createdAt: 'ASC' },
         })
       : null;
@@ -324,35 +324,39 @@ export class WebsiteService {
     await this.siteRevalidation.notify();
   }
 
-  async setLogo(
+  /** The logo or the picture of the map of the site, saved as a WebP; the old one is deleted */
+  async setImage(
     user: User,
+    slot: ClientImageSlot,
     file: Express.Multer.File,
     altText?: string,
   ): Promise<WebsiteDto> {
     const client = await this.load(user);
+    const { column, relation, folder, maxSide } = CLIENT_IMAGE_CONFIG[slot];
 
     await this.replaceImage(
       client,
-      { folder: LOGO_FOLDER, maxSide: LOGO_MAX_SIDE, old: client.logoImage },
+      { folder, maxSide, old: client[relation] },
       file,
       altText,
       (imageId) =>
         this.clientRepository.update(
           { clientId: client.clientId },
-          { logoImageId: imageId },
+          { [column]: imageId },
         ),
     );
 
     return this.findOne(user);
   }
 
-  async removeLogo(user: User): Promise<WebsiteDto> {
+  async removeImage(user: User, slot: ClientImageSlot): Promise<WebsiteDto> {
     const client = await this.load(user);
+    const { column, relation } = CLIENT_IMAGE_CONFIG[slot];
 
-    await this.deleteImage(client.logoImage, () =>
+    await this.deleteImage(client[relation], () =>
       this.clientRepository.update(
         { clientId: client.clientId },
-        { logoImageId: null },
+        { [column]: null },
       ),
     );
 

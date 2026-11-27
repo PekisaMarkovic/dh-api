@@ -93,6 +93,17 @@ export class Client extends AuditEntity {
   @JoinColumn({ name: 'logo_image_id' })
   logoImage: Image | null;
 
+  // optional: a picture of the map, the site shows it instead of the Google map until the visitor accepts the cookies of Google
+  @Column({ name: 'map_image_id', type: 'int', nullable: true })
+  mapImageId: number | null;
+
+  @ManyToOne(() => Image, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({
+    name: 'map_image_id',
+    foreignKeyConstraintName: 'FK_clients_map_image',
+  })
+  mapImage: Image | null;
+
   @ApiProperty()
   @Index()
   @Column({ name: 'company_id' })

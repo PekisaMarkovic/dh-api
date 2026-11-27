@@ -44,9 +44,37 @@ export const SECTION_CONFIG: Record<
   [SectionType.TEXT]: { texts: ['html'], maxSide: null },
 };
 
-/** the folder of the logo and of the pictures shown when a page is shared, in `<root>/company-<name>-<id>/client/<folder>` */
-export const LOGO_FOLDER = 'general';
-export const LOGO_MAX_SIDE = 600;
+/** The pictures of the site itself (not of a page or a section), each is a column of `clients` */
+export const CLIENT_IMAGE_SLOTS = ['logo', 'map'] as const;
+export type ClientImageSlot = (typeof CLIENT_IMAGE_SLOTS)[number];
+
+export const CLIENT_IMAGE_CONFIG: Record<
+  ClientImageSlot,
+  {
+    column: 'logoImageId' | 'mapImageId';
+    relation: 'logoImage' | 'mapImage';
+    /** the folder in `<root>/company-<name>-<id>/client/<folder>` */
+    folder: string;
+    /** the biggest side in pixels */
+    maxSide: number;
+  }
+> = {
+  logo: {
+    column: 'logoImageId',
+    relation: 'logoImage',
+    folder: 'general',
+    maxSide: 600,
+  },
+  // optional: a picture of the map shown instead of the Google map until the visitor accepts its cookies
+  map: {
+    column: 'mapImageId',
+    relation: 'mapImage',
+    folder: 'general',
+    maxSide: 1200,
+  },
+};
+
+/** the folder of the pictures shown when a page is shared */
 export const SEO_FOLDER = 'seo';
 // shared pictures are 1200 x 630
 export const SEO_MAX_SIDE = 1200;

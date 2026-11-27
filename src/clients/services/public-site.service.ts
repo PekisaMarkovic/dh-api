@@ -33,7 +33,7 @@ export class PublicSiteService {
   async find(client: Client): Promise<PublicSiteDto> {
     const full = await this.clientRepository.findOneOrFail({
       where: { clientId: client.clientId },
-      relations: { logoImage: true },
+      relations: { logoImage: true, mapImage: true },
     });
     const pages = await this.pageRepository.find({
       where: { clientId: client.clientId, status: ClientStatus.PUBLISHED },
@@ -58,6 +58,7 @@ export class PublicSiteService {
       instagram: full.instagram,
       workingHours: full.workingHours,
       logo: toPublicImage(full.logoImage),
+      mapImage: toPublicImage(full.mapImage),
       pages: await Promise.all(
         pages.map(async (page) => ({
           title: page.title,

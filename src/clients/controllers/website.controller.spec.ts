@@ -10,8 +10,8 @@ describe('WebsiteController', () => {
   const service = {
     findOne: jest.fn().mockReturnValue('site'),
     update: jest.fn().mockReturnValue('updated'),
-    setLogo: jest.fn().mockReturnValue('image'),
-    removeLogo: jest.fn().mockReturnValue('removed'),
+    setImage: jest.fn().mockReturnValue('image'),
+    removeImage: jest.fn().mockReturnValue('removed'),
     findContacts: jest.fn().mockReturnValue('contacts'),
     publish: jest.fn().mockReturnValue('published'),
     unpublish: jest.fn().mockReturnValue('draft'),
@@ -47,10 +47,17 @@ describe('WebsiteController', () => {
 
     expect(controller.findOne(user)).toBe('site');
     expect(controller.update({ city: 'x' }, user)).toBe('updated');
-    expect(controller.setLogo(file, 'x'.repeat(300), user)).toBe('image');
+    expect(controller.setImage('map', file, 'x'.repeat(300), user)).toBe(
+      'image',
+    );
     // the alt text is cut to the column
-    expect(service.setLogo).toHaveBeenCalledWith(user, file, 'x'.repeat(255));
-    expect(controller.removeLogo(user)).toBe('removed');
+    expect(service.setImage).toHaveBeenCalledWith(
+      user,
+      'map',
+      file,
+      'x'.repeat(255),
+    );
+    expect(controller.removeImage('logo', user)).toBe('removed');
     expect(controller.findContacts(user, { page: 1, limit: 10 })).toBe(
       'contacts',
     );
