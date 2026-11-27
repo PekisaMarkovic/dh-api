@@ -6,7 +6,9 @@ import {
   IsInt,
   IsNumber,
   IsOptional,
+  IsString,
   Max,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -55,6 +57,16 @@ export class CreateProformaDto {
   @IsInt()
   customerId?: number;
 
+  @ApiProperty({
+    required: false,
+    example: 'Darko Dakic',
+    description: 'A buyer typed by hand, used when customerId is left out',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(150)
+  customerName?: string;
+
   @ApiProperty({ type: [CreateProformaItemDto] })
   @IsArray()
   @ArrayMinSize(1)
@@ -73,6 +85,18 @@ export class UpdateProformaDto {
   @IsOptional()
   @IsInt()
   customerId?: number | null;
+
+  @ApiProperty({
+    required: false,
+    nullable: true,
+    example: 'Darko Dakic',
+    description:
+      'A buyer typed by hand, used when customerId is null or left out',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(150)
+  customerName?: string | null;
 
   @ApiProperty({
     type: [CreateProformaItemDto],

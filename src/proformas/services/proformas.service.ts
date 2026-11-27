@@ -101,7 +101,7 @@ export class ProformasService {
             warehouseId: warehouse.warehouseId,
             createdById: user.userId,
             customerId: customer?.customerId ?? null,
-            customerName: customer?.name ?? null,
+            customerName: customer?.name ?? (dto.customerName?.trim() || null),
             total: fromCents(totalCents),
             status: ProformaStatusEnums.ACTIVE,
             items,
@@ -236,11 +236,12 @@ export class ProformasService {
       );
 
       const customerPatch =
-        dto.customerId === undefined
+        dto.customerId === undefined && dto.customerName === undefined
           ? {}
           : {
               customerId: customer?.customerId ?? null,
-              customerName: customer?.name ?? null,
+              customerName:
+                customer?.name ?? (dto.customerName?.trim() || null),
             };
 
       await manager.update(

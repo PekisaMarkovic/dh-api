@@ -277,6 +277,26 @@ describe('ProformasService', () => {
       );
     });
 
+    it('should save a buyer typed by hand', async () => {
+      await service.create(
+        {
+          warehouseId: 5,
+          customerName: '  Darko Dakic ',
+          items: [{ drinkId: 1, quantity: 1 }],
+        },
+        user,
+      );
+
+      expect(customersService.findOne).not.toHaveBeenCalled();
+      expect(manager.create).toHaveBeenCalledWith(
+        Proforma,
+        expect.objectContaining({
+          customerId: null,
+          customerName: 'Darko Dakic',
+        }),
+      );
+    });
+
     it('should copy the name of the buyer to the proforma', async () => {
       customersService.findOne.mockResolvedValue({
         customerId: 9,
@@ -469,6 +489,27 @@ describe('ProformasService', () => {
         Proforma,
         { proformaId: 40 },
         expect.not.objectContaining({ customerId: expect.anything() }),
+      );
+    });
+
+    it('should change the buyer to one typed by hand', async () => {
+      await service.update(
+        40,
+        {
+          customerId: null,
+          customerName: 'Darko Dakic',
+          items: [{ drinkId: 1, quantity: 1 }],
+        },
+        user,
+      );
+
+      expect(manager.update).toHaveBeenCalledWith(
+        Proforma,
+        { proformaId: 40 },
+        expect.objectContaining({
+          customerId: null,
+          customerName: 'Darko Dakic',
+        }),
       );
     });
 
