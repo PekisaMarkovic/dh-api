@@ -26,6 +26,10 @@ import { Order } from '@/orders/entities/order.entity';
 import { OrderItem } from '@/orders/entities/order-item.entity';
 import { OrdersModule } from '@/orders/orders.module';
 import { Client } from '@/clients/entities/client.entity';
+import { Page } from '@/clients/entities/page.entity';
+import { PageSection } from '@/clients/entities/page-section.entity';
+import { Section } from '@/clients/entities/section.entity';
+import { Seo } from '@/clients/entities/seo.entity';
 import { ClientContactedBy } from '@/clients/entities/client-contacted-by.entity';
 import { ClientsModule } from '@/clients/clients.module';
 import { Image } from '@/storage/entities/image.entity';
@@ -72,13 +76,18 @@ import { PurchaseImportModule } from '@/purchase-import/purchase-import.module';
           Image,
           Client,
           ClientContactedBy,
+          Page,
+          Section,
+          PageSection,
+          Seo,
           Customer,
           Proforma,
           ProformaItem,
           PurchaseImport,
           PurchaseImportItem,
         ],
-        synchronize: true,
+        // the schema changes only through migrations (`pnpm migration:run`, also the pre-deploy command), an entity change never touches the database
+        synchronize: false,
       }),
     }),
     ScheduleModule.forRoot(),

@@ -37,7 +37,7 @@ pnpm install
 pnpm start:dev
 ```
 
-The first start creates the tables and seeds the first data (more on that below). After that, run `pnpm migration:run` once, then log in to the dashboard with `SUPER_ADMIN_EMAIL` and `SUPER_ADMIN_PASSWORD` from your `.env`.
+Run `pnpm migration:run` first (on a new database it builds the whole schema), then start the API: the first start seeds the first data (more on that below). Then log in to the dashboard with `SUPER_ADMIN_EMAIL` and `SUPER_ADMIN_PASSWORD` from your `.env`.
 
 Please install with **pnpm**, not npm. There's a small patch in `patches/` that only pnpm applies, and without it the API won't start on Node 25+ (see "Good to know").
 
@@ -278,9 +278,10 @@ Database changes go through migrations in `src/migrations` (TypeORM, named `<tim
 
 A few rules:
 
-- Use `IF NOT EXISTS` / `IF EXISTS`, so a migration doesn't fail on a database that `synchronize` already changed (see below).
 - Never edit a migration after it has run anywhere. Add a new one instead.
-- **`synchronize: true` is still on** in `app.module.ts`, so the schema also follows the entities on its own. The migrations don't build the schema from scratch, they're the changes on top of it. For a new database, start the API once and then run `pnpm migration:run`. Give constraints and indexes the same explicit names in the entity and the migration (see `drink_categories` or `orders`), otherwise `synchronize` will keep renaming them on every start. You can check with `pnpm typeorm schema:log -d src/db/data-source.ts`. Before there's real data that matters, turn `synchronize` off and add a baseline migration.
+- **`synchronize` is off**: the schema changes only through migrations. Changing an entity does nothing to the database until you add a migration (`pnpm migration:generate` shows the difference). Run `pnpm migration:run` after pulling a new migration; the deploy runs it in the pre-deploy command, before the new version starts. (The API is bundled with webpack, so it can not run them itself on start.)
+- `1763000000000-Baseline` builds the whole schema on a new database and does nothing on the older ones (they were made by `synchronize` and already have it). The migrations after it are the changes on top of it.
+- Never drop a column in the same migration that moves its data somewhere else. Copy first, drop it in a later release (the old content columns of `clients` are still there for that reason).
 
 ## Tests
 

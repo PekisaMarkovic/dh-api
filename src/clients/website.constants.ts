@@ -1,68 +1,51 @@
-/** The pictures of a white label site. Every slot is one image, it has its own folder in the bucket and its own size limit */
-export const WEBSITE_IMAGE_SLOTS = [
-  'logo',
-  'hero',
-  'story',
-  'promo',
-  'og',
-] as const;
-export type WebsiteImageSlot = (typeof WEBSITE_IMAGE_SLOTS)[number];
+import { SectionType } from '@/clients/website.types';
 
-export const WEBSITE_SLOT_CONFIG: Record<
-  WebsiteImageSlot,
+/** The address of the home page and of the drinks menu. Every site has both, they can not be deleted or moved */
+export const HOME_SLUG = '';
+export const MENU_SLUG = 'karta-pica';
+/** the addresses the site already uses for something else */
+export const RESERVED_SLUGS = [HOME_SLUG, MENU_SLUG, 'api'];
+export const isSystemSlug = (slug: string) =>
+  slug === HOME_SLUG || slug === MENU_SLUG;
+/** lowercase letters, digits and single dashes, e.g. o-nama */
+export const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+/** The pages a site starts with */
+export const DEFAULT_PAGES = [
+  { slug: HOME_SLUG, title: 'Početna' },
+  { slug: MENU_SLUG, title: 'Karta pića' },
+] as const;
+
+/** What a section of each kind has: its texts, whether it has a picture and how big it is saved */
+export const SECTION_CONFIG: Record<
+  SectionType,
   {
-    /** the column of `clients` that points to the image */
-    column:
-      | 'logoImageId'
-      | 'heroImageId'
-      | 'storyImageId'
-      | 'promoImageId'
-      | 'ogImageId';
-    /** the relation of `clients` with the image */
-    relation:
-      | 'logoImage'
-      | 'heroImage'
-      | 'storyImage'
-      | 'promoImage'
-      | 'ogImage';
-    /** the folder in `<root>/company-<name>-<id>/client/<folder>` */
-    folder: 'general' | 'hero' | 'story' | 'promo' | 'seo';
-    /** the biggest side in pixels, a bigger image is made smaller */
-    maxSide: number;
+    texts: readonly string[];
+    /** the biggest side of the picture in pixels, null = the section has no picture */
+    maxSide: number | null;
   }
 > = {
-  logo: {
-    column: 'logoImageId',
-    relation: 'logoImage',
-    folder: 'general',
-    maxSide: 600,
-  },
-  hero: {
-    column: 'heroImageId',
-    relation: 'heroImage',
-    folder: 'hero',
+  [SectionType.HERO]: {
+    texts: ['title', 'subtitle', 'text', 'buttonText'],
     maxSide: 2000,
   },
-  story: {
-    column: 'storyImageId',
-    relation: 'storyImage',
-    folder: 'story',
+  [SectionType.FEATURED]: { texts: ['title', 'buttonText'], maxSide: null },
+  [SectionType.STORY]: {
+    texts: ['title', 'paragraph1', 'paragraph2', 'buttonText'],
     maxSide: 1200,
   },
-  promo: {
-    column: 'promoImageId',
-    relation: 'promoImage',
-    folder: 'promo',
-    maxSide: 1200,
-  },
-  // the picture shown when the site is shared (Facebook, Viber, WhatsApp, Google): 1200 x 630
-  og: {
-    column: 'ogImageId',
-    relation: 'ogImage',
-    folder: 'seo',
+  [SectionType.INFO]: {
+    texts: ['title', 'text', 'buttonText'],
     maxSide: 1200,
   },
 };
+
+/** the folder of the logo and of the pictures shown when a page is shared, in `<root>/company-<name>-<id>/client/<folder>` */
+export const LOGO_FOLDER = 'general';
+export const LOGO_MAX_SIDE = 600;
+export const SEO_FOLDER = 'seo';
+// shared pictures are 1200 x 630
+export const SEO_MAX_SIDE = 1200;
 
 export const MAX_FEATURED_DRINKS = 10;
 /** how many drinks the "from our offer" section shows when none were picked (even, the site shows them in pairs) */

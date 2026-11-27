@@ -10,7 +10,6 @@ import { ApiProperty } from '@nestjs/swagger';
 import { AuditEntity } from '@/common/entities/audit.entity';
 import { Company } from '@/companies/entities/company.entity';
 import { Image } from '@/storage/entities/image.entity';
-import { ClientSections } from '@/clients/website.types';
 import { ClientStatus } from '@/clients/client-status.enum';
 
 /**
@@ -85,15 +84,7 @@ export class Client extends AuditEntity {
   @Column({ name: 'working_hours', type: 'text', nullable: true })
   workingHours: string | null;
 
-  // ---- the texts of the sections (hero, featured, story, promo) ----
-
-  @ApiProperty({
-    description: 'The texts of the sections, see website.types.ts',
-  })
-  @Column({ type: 'jsonb', default: () => "'{}'" })
-  sections: ClientSections;
-
-  // ---- the pictures, every one is a row of `images` (the file is in the bucket) ----
+  // ---- the logo, a row of `images` (the file is in the bucket). The pages and their sections are in `pages` and `sections` ----
 
   @Column({ name: 'logo_image_id', type: 'int', nullable: true })
   logoImageId: number | null;
@@ -101,34 +92,6 @@ export class Client extends AuditEntity {
   @ManyToOne(() => Image, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'logo_image_id' })
   logoImage: Image | null;
-
-  @Column({ name: 'hero_image_id', type: 'int', nullable: true })
-  heroImageId: number | null;
-
-  @ManyToOne(() => Image, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'hero_image_id' })
-  heroImage: Image | null;
-
-  @Column({ name: 'story_image_id', type: 'int', nullable: true })
-  storyImageId: number | null;
-
-  @ManyToOne(() => Image, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'story_image_id' })
-  storyImage: Image | null;
-
-  @Column({ name: 'promo_image_id', type: 'int', nullable: true })
-  promoImageId: number | null;
-
-  @ManyToOne(() => Image, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'promo_image_id' })
-  promoImage: Image | null;
-
-  @Column({ name: 'og_image_id', type: 'int', nullable: true })
-  ogImageId: number | null;
-
-  @ManyToOne(() => Image, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'og_image_id' })
-  ogImage: Image | null;
 
   @ApiProperty()
   @Index()

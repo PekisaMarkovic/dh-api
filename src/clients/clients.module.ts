@@ -6,6 +6,10 @@ import { CompaniesModule } from '@/companies/companies.module';
 import { OrdersModule } from '@/orders/orders.module';
 import { Client } from '@/clients/entities/client.entity';
 import { ClientContactedBy } from '@/clients/entities/client-contacted-by.entity';
+import { Page } from '@/clients/entities/page.entity';
+import { PageSection } from '@/clients/entities/page-section.entity';
+import { Section } from '@/clients/entities/section.entity';
+import { Seo } from '@/clients/entities/seo.entity';
 import { Drink } from '@/drinks/entities/drink.entity';
 import { PublicContactController } from '@/clients/controllers/public-contact.controller';
 import { PublicDrinksController } from '@/clients/controllers/public-drinks.controller';
@@ -18,12 +22,21 @@ import { ClientsService } from '@/clients/services/clients.service';
 import { PublicDrinksService } from '@/clients/services/public-drinks.service';
 import { SiteRevalidationService } from '@/clients/services/site-revalidation.service';
 import { PublicSiteService } from '@/clients/services/public-site.service';
+import { SitePagesService } from '@/clients/services/site-pages.service';
 import { WebsiteService } from '@/clients/services/website.service';
 import { StorageModule } from '@/storage/storage.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Client, ClientContactedBy, Drink]),
+    TypeOrmModule.forFeature([
+      Client,
+      ClientContactedBy,
+      Drink,
+      Page,
+      Section,
+      PageSection,
+      Seo,
+    ]),
     // the limits are set per route with @Throttle, this is only the default
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
     CompaniesModule,
@@ -44,6 +57,7 @@ import { StorageModule } from '@/storage/storage.module';
     ClientContactsService,
     PublicSiteService,
     WebsiteService,
+    SitePagesService,
     SiteRevalidationService,
     ClientAccessGuard,
   ],

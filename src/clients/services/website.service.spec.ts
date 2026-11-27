@@ -2,6 +2,8 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { Client } from '@/clients/entities/client.entity';
 import { ClientContactedBy } from '@/clients/entities/client-contacted-by.entity';
+import { Page } from '@/clients/entities/page.entity';
+import { Section } from '@/clients/entities/section.entity';
 import { WebsiteService } from '@/clients/services/website.service';
 import { Drink } from '@/drinks/entities/drink.entity';
 import { User } from '@/users/entities/user.entity';
@@ -14,6 +16,13 @@ describe('WebsiteService', () => {
     update: jest.Mock;
   };
   let drinkRepository: { count: jest.Mock; find: jest.Mock };
+  let pageRepository: {
+    count: jest.Mock;
+    find: jest.Mock;
+    save: jest.Mock;
+    create: jest.Mock;
+  };
+  let sectionRepository: { find: jest.Mock };
   let companiesService: { findOne: jest.Mock };
   let storage: { clientFolder: jest.Mock };
   let optimizer: { toWebp: jest.Mock };
@@ -27,8 +36,7 @@ describe('WebsiteService', () => {
       name: 'Drink House web',
       companyId: 4,
       city: 'Loznica',
-      sections: { hero: { title: 'Stari naslov', text: 'Tekst' } },
-      heroImage: null,
+      logoImage: null,
       ...overrides,
     }) as unknown as Client;
 
@@ -42,6 +50,13 @@ describe('WebsiteService', () => {
       count: jest.fn().mockResolvedValue(2),
       find: jest.fn().mockResolvedValue([]),
     };
+    pageRepository = {
+      count: jest.fn().mockResolvedValue(2),
+      find: jest.fn().mockResolvedValue([]),
+      save: jest.fn((e: unknown) => Promise.resolve(e)),
+      create: jest.fn((e: unknown) => e),
+    };
+    sectionRepository = { find: jest.fn().mockResolvedValue([]) };
     companiesService = {
       findOne: jest
         .fn()
@@ -50,7 +65,7 @@ describe('WebsiteService', () => {
     storage = {
       clientFolder: jest
         .fn()
-        .mockReturnValue('local/company-drink-house-4/client/hero'),
+        .mockReturnValue('local/company-drink-house-4/client/general'),
     };
     optimizer = {
       toWebp: jest.fn().mockResolvedValue({
@@ -70,6 +85,8 @@ describe('WebsiteService', () => {
       clientRepository as unknown as Repository<Client>,
       {} as Repository<ClientContactedBy>,
       drinkRepository as unknown as Repository<Drink>,
+      pageRepository as unknown as Repository<Page>,
+      sectionRepository as unknown as Repository<Section>,
       companiesService as never,
       storage as never,
       optimizer as never,
@@ -87,10 +104,45 @@ describe('WebsiteService', () => {
       );
     });
 
-    it('should add the names and images of the picked drinks in the picked order', async () => {
-      clientRepository.findOne.mockResolvedValue(
-        stored({ sections: { featured: { drinkIds: [6, 5, 99] } } }),
-      );
+    it('should return every page with its SEO and its sections in order', async () => {
+      pageRepository.find.mockResolvedValue([
+        {
+          pageId: 1,
+          title: 'Početna',
+          slug: '',
+          status: 'published',
+          position: 0,
+          seo: { title: 't', description: null, image: null },
+          pageSections: [
+            { sectionId: 7, position: 0, isVisible: true },
+            { sectionId: 8, position: 1, isVisible: false },
+          ],
+        },
+      ]);
+
+      const site = await service.findOne(user);
+
+      expect(site.pages).toEqual([
+        {
+          pageId: 1,
+          title: 'Početna',
+          slug: '',
+          status: 'published',
+          position: 0,
+          seo: { title: 't', description: null, image: null },
+          sections: [
+            { sectionId: 7, position: 0, isVisible: true },
+            { sectionId: 8, position: 1, isVisible: false },
+          ],
+        },
+      ]);
+    });
+
+    it('should add the names and images of the picked drinks of a section in the picked order', async () => {
+      sectionRepository.find.mockResolvedValue([
+        { sectionId: 3, type: 'featured', content: { drinkIds: [6, 5, 99] } },
+        { sectionId: 4, type: 'hero', content: {} },
+      ]);
       drinkRepository.find.mockResolvedValue([
         { drinkId: 5, name: 'FANTA', image: null },
         { drinkId: 6, name: 'COLA', image: { url: 'https://img/cola.webp' } },
@@ -98,10 +150,33 @@ describe('WebsiteService', () => {
 
       const site = await service.findOne(user);
 
-      expect(site.featuredDrinks).toEqual([
+      expect(site.sections[0].drinks).toEqual([
         { drinkId: 6, name: 'COLA', imageUrl: 'https://img/cola.webp' },
         { drinkId: 5, name: 'FANTA', imageUrl: null },
       ]);
+      expect(site.sections[1].drinks).toEqual([]);
+    });
+
+    it('should give a site without pages the home page and the menu', async () => {
+      pageRepository.count.mockResolvedValue(0);
+
+      await service.findOne(user);
+
+      expect(pageRepository.save).toHaveBeenCalledWith([
+        expect.objectContaining({
+          clientId: 'abc',
+          slug: '',
+          status: 'published',
+          position: 0,
+        }),
+        expect.objectContaining({ slug: 'karta-pica', position: 1 }),
+      ]);
+    });
+
+    it('should not add pages to a site that has them', async () => {
+      await service.findOne(user);
+
+      expect(pageRepository.save).not.toHaveBeenCalled();
     });
 
     it('should say 404 when the company has no site', async () => {
@@ -126,40 +201,6 @@ describe('WebsiteService', () => {
       expect(saved.city).toBe('Šabac');
       expect(saved.phone).toBe('+381 15 111 222');
     });
-
-    it('should merge a section: the sent texts replace, the rest stays', async () => {
-      await service.update(user, { hero: { title: 'Novi naslov' } });
-
-      expect(clientRepository.save.mock.calls[0][0].sections.hero).toEqual({
-        title: 'Novi naslov',
-        text: 'Tekst',
-      });
-    });
-
-    it('should save the picked drinks only when they are drinks of the company', async () => {
-      await service.update(user, { featured: { drinkIds: [5, 6] } });
-
-      expect(drinkRepository.count).toHaveBeenCalled();
-      expect(clientRepository.save.mock.calls[0][0].sections.featured).toEqual({
-        drinkIds: [5, 6],
-      });
-    });
-
-    it('should refuse an odd number of picked drinks', async () => {
-      await expect(
-        service.update(user, { featured: { drinkIds: [5, 6, 7] } }),
-      ).rejects.toThrow(BadRequestException);
-      expect(clientRepository.save).not.toHaveBeenCalled();
-    });
-
-    it('should refuse a drink of another company', async () => {
-      drinkRepository.count.mockResolvedValue(1);
-
-      await expect(
-        service.update(user, { featured: { drinkIds: [5, 999] } }),
-      ).rejects.toThrow(BadRequestException);
-      expect(clientRepository.save).not.toHaveBeenCalled();
-    });
   });
 
   describe('publish', () => {
@@ -173,27 +214,6 @@ describe('WebsiteService', () => {
         instagram: 'https://i',
         workingHours: '7',
         logoImageId: 1,
-        heroImageId: 2,
-        storyImageId: 3,
-        promoImageId: 4,
-        ogImageId: 5,
-        sections: {
-          hero: { title: 't', subtitle: 's', text: 'x', buttonText: 'b' },
-          featured: { title: 't', buttonText: 'b', drinkIds: [1] },
-          story: {
-            title: 't',
-            paragraph1: 'a',
-            paragraph2: 'b',
-            buttonText: 'c',
-          },
-          promo: { title: 't', text: 'x', buttonText: 'b' },
-          seo: {
-            title: 't',
-            description: 'd',
-            menuTitle: 'm',
-            menuDescription: 'md',
-          },
-        },
       } as unknown as Partial<Client>);
 
     it('should say what is missing in the site that is returned', async () => {
@@ -249,8 +269,8 @@ describe('WebsiteService', () => {
 
     it('should tell the site to drop its cache after every change', async () => {
       await service.update(user, { city: 'Beograd' });
-      await service.setImage(user, 'hero', file);
-      await service.removeImage(user, 'hero');
+      await service.setLogo(user, file);
+      await service.removeLogo(user);
       clientRepository.findOne.mockResolvedValue({
         ...stored(),
         status: 'published',
@@ -267,59 +287,36 @@ describe('WebsiteService', () => {
     });
   });
 
-  describe('images', () => {
+  describe('logo', () => {
     const file = { buffer: Buffer.from('x') } as Express.Multer.File;
 
-    it('should save the picture in the client folder of the section, with the size of the slot', async () => {
-      await service.setImage(user, 'hero', file);
+    it('should save the logo small, in the client folder general', async () => {
+      await service.setLogo(user, file);
 
-      expect(optimizer.toWebp).toHaveBeenCalledWith(file.buffer, 2000);
+      expect(optimizer.toWebp).toHaveBeenCalledWith(file.buffer, 600);
       expect(storage.clientFolder).toHaveBeenCalledWith(
         { companyId: 4, name: 'DRINK HOUSE' },
-        'hero',
+        'general',
       );
       expect(images.create).toHaveBeenCalledWith(
         expect.objectContaining({
           companyId: 4,
-          folder: 'local/company-drink-house-4/client/hero',
+          folder: 'local/company-drink-house-4/client/general',
         }),
       );
       expect(clientRepository.update).toHaveBeenCalledWith(
         { clientId: 'abc' },
-        { heroImageId: 9 },
-      );
-    });
-
-    it('should save the picture for sharing in the folder seo', async () => {
-      await service.setImage(user, 'og', file);
-
-      expect(storage.clientFolder).toHaveBeenCalledWith(
-        expect.anything(),
-        'seo',
-      );
-      expect(clientRepository.update).toHaveBeenCalledWith(
-        { clientId: 'abc' },
-        { ogImageId: 9 },
-      );
-    });
-
-    it('should use the folder general and a small size for the logo', async () => {
-      await service.setImage(user, 'logo', file);
-
-      expect(optimizer.toWebp).toHaveBeenCalledWith(file.buffer, 600);
-      expect(storage.clientFolder).toHaveBeenCalledWith(
-        expect.anything(),
-        'general',
+        { logoImageId: 9 },
       );
     });
 
     it('should delete the old picture when it is replaced', async () => {
       const old = { imageId: 3, key: 'old' };
       clientRepository.findOne.mockResolvedValue(
-        stored({ heroImage: old } as Partial<Client>),
+        stored({ logoImage: old } as Partial<Client>),
       );
 
-      await service.setImage(user, 'hero', file);
+      await service.setLogo(user, file);
 
       expect(images.remove).toHaveBeenCalledWith(old);
     });
@@ -327,7 +324,7 @@ describe('WebsiteService', () => {
     it('should delete the new picture when the database fails', async () => {
       clientRepository.update.mockRejectedValue(new Error('db'));
 
-      await expect(service.setImage(user, 'hero', file)).rejects.toThrow('db');
+      await expect(service.setLogo(user, file)).rejects.toThrow('db');
       expect(images.remove).toHaveBeenCalledWith(
         expect.objectContaining({ imageId: 9 }),
       );
@@ -335,25 +332,22 @@ describe('WebsiteService', () => {
 
     it('should reject a request without a file', async () => {
       await expect(
-        service.setImage(
-          user,
-          'hero',
-          undefined as unknown as Express.Multer.File,
-        ),
+        service.setLogo(user, undefined as unknown as Express.Multer.File),
       ).rejects.toThrow(BadRequestException);
+      expect(images.create).not.toHaveBeenCalled();
     });
 
-    it('should remove a picture', async () => {
+    it('should remove the logo', async () => {
       const old = { imageId: 3, key: 'old' };
       clientRepository.findOne.mockResolvedValue(
-        stored({ storyImage: old } as Partial<Client>),
+        stored({ logoImage: old } as Partial<Client>),
       );
 
-      await service.removeImage(user, 'story');
+      await service.removeLogo(user);
 
       expect(clientRepository.update).toHaveBeenCalledWith(
         { clientId: 'abc' },
-        { storyImageId: null },
+        { logoImageId: null },
       );
       expect(images.remove).toHaveBeenCalledWith(old);
     });

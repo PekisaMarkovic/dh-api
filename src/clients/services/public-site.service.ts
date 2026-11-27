@@ -2,7 +2,15 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { PublicDrinkDto } from '@/clients/dto/public-drink.dto';
-import { PublicSiteDto, toPublicImage } from '@/clients/dto/public-site.dto';
+import {
+  PublicSectionDto,
+  PublicSiteDto,
+  toPublicImage,
+} from '@/clients/dto/public-site.dto';
+import { ClientStatus } from '@/clients/client-status.enum';
+import { Page } from '@/clients/entities/page.entity';
+import { Section } from '@/clients/entities/section.entity';
+import { SectionType } from '@/clients/website.types';
 import { Client } from '@/clients/entities/client.entity';
 import {
   DEFAULT_FEATURED_DRINKS,
@@ -10,7 +18,7 @@ import {
 } from '@/clients/website.constants';
 import { Drink } from '@/drinks/entities/drink.entity';
 
-/** Builds what a white label site shows, from the `clients` row, its pictures and the picked drinks */
+/** Builds what a white label site shows: the general info, the published pages with their shown sections and the picked drinks */
 @Injectable()
 export class PublicSiteService {
   constructor(
@@ -18,20 +26,27 @@ export class PublicSiteService {
     private readonly clientRepository: Repository<Client>,
     @InjectRepository(Drink)
     private readonly drinkRepository: Repository<Drink>,
+    @InjectRepository(Page)
+    private readonly pageRepository: Repository<Page>,
   ) {}
 
   async find(client: Client): Promise<PublicSiteDto> {
     const full = await this.clientRepository.findOneOrFail({
       where: { clientId: client.clientId },
+      relations: { logoImage: true },
+    });
+    const pages = await this.pageRepository.find({
+      where: { clientId: client.clientId, status: ClientStatus.PUBLISHED },
       relations: {
-        logoImage: true,
-        heroImage: true,
-        storyImage: true,
-        promoImage: true,
-        ogImage: true,
+        seo: { image: true },
+        pageSections: { section: { image: true } },
+      },
+      order: {
+        position: 'ASC',
+        pageId: 'ASC',
+        pageSections: { position: 'ASC' },
       },
     });
-    const { hero, featured, story, promo, seo } = full.sections ?? {};
 
     return {
       status: full.status,
@@ -43,38 +58,47 @@ export class PublicSiteService {
       instagram: full.instagram,
       workingHours: full.workingHours,
       logo: toPublicImage(full.logoImage),
-      hero: {
-        title: hero?.title ?? null,
-        subtitle: hero?.subtitle ?? null,
-        text: hero?.text ?? null,
-        buttonText: hero?.buttonText ?? null,
-        image: toPublicImage(full.heroImage),
-      },
-      featured: {
-        title: featured?.title ?? null,
-        buttonText: featured?.buttonText ?? null,
-        drinks: await this.featuredDrinks(full.companyId, featured?.drinkIds),
-      },
-      story: {
-        title: story?.title ?? null,
-        paragraph1: story?.paragraph1 ?? null,
-        paragraph2: story?.paragraph2 ?? null,
-        buttonText: story?.buttonText ?? null,
-        image: toPublicImage(full.storyImage),
-      },
-      promo: {
-        title: promo?.title ?? null,
-        text: promo?.text ?? null,
-        buttonText: promo?.buttonText ?? null,
-        image: toPublicImage(full.promoImage),
-      },
-      seo: {
-        title: seo?.title ?? null,
-        description: seo?.description ?? null,
-        menuTitle: seo?.menuTitle ?? null,
-        menuDescription: seo?.menuDescription ?? null,
-        image: toPublicImage(full.ogImage),
-      },
+      pages: await Promise.all(
+        pages.map(async (page) => ({
+          title: page.title,
+          slug: page.slug,
+          seo: {
+            title: page.seo.title,
+            description: page.seo.description,
+            image: toPublicImage(page.seo.image),
+          },
+          sections: await Promise.all(
+            page.pageSections
+              .filter((item) => item.isVisible)
+              .map(({ section }) =>
+                this.toPublicSection(full.companyId, section),
+              ),
+          ),
+        })),
+      ),
+    };
+  }
+
+  private async toPublicSection(
+    companyId: number,
+    section: Section,
+  ): Promise<PublicSectionDto> {
+    const content = section.content ?? {};
+
+    return {
+      sectionId: section.sectionId,
+      type: section.type,
+      title: content.title ?? null,
+      subtitle: content.subtitle ?? null,
+      text: content.text ?? null,
+      paragraph1: content.paragraph1 ?? null,
+      paragraph2: content.paragraph2 ?? null,
+      buttonText: content.buttonText ?? null,
+      image: toPublicImage(section.image),
+      drinks:
+        section.type === SectionType.FEATURED
+          ? await this.featuredDrinks(companyId, content.drinkIds)
+          : [],
     };
   }
 

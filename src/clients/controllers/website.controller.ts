@@ -4,7 +4,7 @@ import {
   Delete,
   Get,
   Param,
-  ParseEnumPipe,
+  ParseIntPipe,
   Patch,
   Post,
   Put,
@@ -18,20 +18,34 @@ import {
   ApiBody,
   ApiConsumes,
   ApiOperation,
-  ApiParam,
   ApiTags,
 } from '@nestjs/swagger';
 import { CurrentUser, Roles } from '@/auth/decorators';
 import { ClientRoleEnums } from '@/auth/enums';
 import { UpdateWebsiteDto } from '@/clients/dto/update-website.dto';
-import { WebsiteService } from '@/clients/services/website.service';
 import {
-  WEBSITE_IMAGE_SLOTS,
-  WebsiteImageSlot,
-} from '@/clients/website.constants';
+  CreatePageDto,
+  CreateSectionDto,
+  SetPageSectionsDto,
+  UpdatePageDto,
+  UpdateSectionDto,
+} from '@/clients/dto/site-pages.dto';
+import { SitePagesService } from '@/clients/services/site-pages.service';
+import { WebsiteService } from '@/clients/services/website.service';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { IMAGE_MAX_UPLOAD_BYTES } from '@/storage/storage.constants';
 import { User } from '@/users/entities/user.entity';
+
+const IMAGE_BODY = {
+  type: 'object',
+  properties: {
+    file: { type: 'string', format: 'binary' },
+    altText: { type: 'string' },
+  },
+};
+
+const alt = (altText: unknown) =>
+  typeof altText === 'string' ? altText.slice(0, 255) : undefined;
 
 /** The white label site of the company of the logged in admin (the dashboard page "Web sajt") */
 @Controller('website')
@@ -39,12 +53,15 @@ import { User } from '@/users/entities/user.entity';
 @ApiBearerAuth('access-token')
 @Roles(ClientRoleEnums.SUPER_ADMIN, ClientRoleEnums.ADMIN)
 export class WebsiteController {
-  constructor(private readonly websiteService: WebsiteService) {}
+  constructor(
+    private readonly websiteService: WebsiteService,
+    private readonly sitePagesService: SitePagesService,
+  ) {}
 
   @Get()
   @ApiOperation({
     summary:
-      'The site of my company (general info, texts and pictures). 404 when the company has no site',
+      'The site of my company: general info, the pages with their SEO and sections, and every section. 404 when the company has no site',
   })
   findOne(@CurrentUser() user: User) {
     return this.websiteService.findOne(user);
@@ -53,7 +70,7 @@ export class WebsiteController {
   @Patch()
   @ApiOperation({
     summary:
-      'Change the general info and the texts of the sections. An empty text removes it, the site then shows its default text',
+      'Change the general info of the site (name, city, address, phone, Instagram, working hours)',
   })
   update(@Body() dto: UpdateWebsiteDto, @CurrentUser() user: User) {
     return this.websiteService.update(user, dto);
@@ -62,7 +79,7 @@ export class WebsiteController {
   @Post('publish')
   @ApiOperation({
     summary:
-      'Publish the site. Only a complete site can be published (all texts, the pictures and at least one recommended drink), 400 says what is missing',
+      'Publish the site. Only a complete site can be published (the general info, the logo and everything on the published pages), 400 says what is missing',
   })
   publish(@CurrentUser() user: User) {
     return this.websiteService.publish(user);
@@ -76,49 +93,172 @@ export class WebsiteController {
     return this.websiteService.unpublish(user);
   }
 
-  @Put('images/:slot')
+  @Put('logo')
   @ApiOperation({
-    summary:
-      'Upload a picture: logo, hero (background), story or promo. It is saved as a WebP, the old one is replaced',
+    summary: 'Upload the logo. It is saved as a WebP, the old one is replaced',
   })
-  @ApiParam({ name: 'slot', enum: WEBSITE_IMAGE_SLOTS })
   @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        file: { type: 'string', format: 'binary' },
-        altText: { type: 'string' },
-      },
-    },
-  })
+  @ApiBody({ schema: IMAGE_BODY })
   @UseInterceptors(
     FileInterceptor('file', { limits: { fileSize: IMAGE_MAX_UPLOAD_BYTES } }),
   )
-  setImage(
-    @Param('slot', new ParseEnumPipe(WEBSITE_IMAGE_SLOTS))
-    slot: WebsiteImageSlot,
+  setLogo(
     @UploadedFile() file: Express.Multer.File,
     @Body('altText') altText: string | undefined,
     @CurrentUser() user: User,
   ) {
-    return this.websiteService.setImage(
+    return this.websiteService.setLogo(user, file, alt(altText));
+  }
+
+  @Delete('logo')
+  @ApiOperation({ summary: 'Delete the logo' })
+  removeLogo(@CurrentUser() user: User) {
+    return this.websiteService.removeLogo(user);
+  }
+
+  // ---- pages ----
+
+  @Post('pages')
+  @ApiOperation({
+    summary:
+      'A new page (a draft at the end of the menu), its address is made from the title when it is left out',
+  })
+  createPage(@Body() dto: CreatePageDto, @CurrentUser() user: User) {
+    return this.sitePagesService.createPage(user, dto);
+  }
+
+  @Patch('pages/:pageId')
+  @ApiOperation({
+    summary:
+      'Change the title, the address, the status or the SEO texts of a page. The home page and the menu keep their address and stay published',
+  })
+  updatePage(
+    @Param('pageId', ParseIntPipe) pageId: number,
+    @Body() dto: UpdatePageDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.sitePagesService.updatePage(user, pageId, dto);
+  }
+
+  @Delete('pages/:pageId')
+  @ApiOperation({
+    summary:
+      'Delete a page, its sections stay. The home page and the menu can not be deleted',
+  })
+  removePage(
+    @Param('pageId', ParseIntPipe) pageId: number,
+    @CurrentUser() user: User,
+  ) {
+    return this.sitePagesService.removePage(user, pageId);
+  }
+
+  @Put('pages/:pageId/sections')
+  @ApiOperation({
+    summary:
+      'All the sections of a page in their order with their visibility, a section left out is taken off the page',
+  })
+  setPageSections(
+    @Param('pageId', ParseIntPipe) pageId: number,
+    @Body() dto: SetPageSectionsDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.sitePagesService.setPageSections(user, pageId, dto);
+  }
+
+  @Post('pages/:pageId/sections')
+  @ApiOperation({
+    summary: 'A new empty section at the end of the page',
+  })
+  createSection(
+    @Param('pageId', ParseIntPipe) pageId: number,
+    @Body() dto: CreateSectionDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.sitePagesService.createSection(user, pageId, dto);
+  }
+
+  @Put('pages/:pageId/seo/image')
+  @ApiOperation({
+    summary: 'Upload the picture shown when the page is shared',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ schema: IMAGE_BODY })
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: IMAGE_MAX_UPLOAD_BYTES } }),
+  )
+  setSeoImage(
+    @Param('pageId', ParseIntPipe) pageId: number,
+    @UploadedFile() file: Express.Multer.File,
+    @Body('altText') altText: string | undefined,
+    @CurrentUser() user: User,
+  ) {
+    return this.sitePagesService.setSeoImage(user, pageId, file, alt(altText));
+  }
+
+  @Delete('pages/:pageId/seo/image')
+  @ApiOperation({ summary: 'Delete the picture shown when the page is shared' })
+  removeSeoImage(
+    @Param('pageId', ParseIntPipe) pageId: number,
+    @CurrentUser() user: User,
+  ) {
+    return this.sitePagesService.removeSeoImage(user, pageId);
+  }
+
+  // ---- sections ----
+
+  @Patch('sections/:sectionId')
+  @ApiOperation({
+    summary:
+      'Change the name and the texts of a section (on every page it is on), a section takes only the texts of its type',
+  })
+  updateSection(
+    @Param('sectionId', ParseIntPipe) sectionId: number,
+    @Body() dto: UpdateSectionDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.sitePagesService.updateSection(user, sectionId, dto);
+  }
+
+  @Delete('sections/:sectionId')
+  @ApiOperation({ summary: 'Delete a section from every page it is on' })
+  removeSection(
+    @Param('sectionId', ParseIntPipe) sectionId: number,
+    @CurrentUser() user: User,
+  ) {
+    return this.sitePagesService.removeSection(user, sectionId);
+  }
+
+  @Put('sections/:sectionId/image')
+  @ApiOperation({
+    summary:
+      'Upload the picture of a section (hero, story, info). It is saved as a WebP, the old one is replaced',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ schema: IMAGE_BODY })
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: IMAGE_MAX_UPLOAD_BYTES } }),
+  )
+  setSectionImage(
+    @Param('sectionId', ParseIntPipe) sectionId: number,
+    @UploadedFile() file: Express.Multer.File,
+    @Body('altText') altText: string | undefined,
+    @CurrentUser() user: User,
+  ) {
+    return this.sitePagesService.setSectionImage(
       user,
-      slot,
+      sectionId,
       file,
-      typeof altText === 'string' ? altText.slice(0, 255) : undefined,
+      alt(altText),
     );
   }
 
-  @Delete('images/:slot')
-  @ApiOperation({ summary: 'Delete a picture of the site' })
-  @ApiParam({ name: 'slot', enum: WEBSITE_IMAGE_SLOTS })
-  removeImage(
-    @Param('slot', new ParseEnumPipe(WEBSITE_IMAGE_SLOTS))
-    slot: WebsiteImageSlot,
+  @Delete('sections/:sectionId/image')
+  @ApiOperation({ summary: 'Delete the picture of a section' })
+  removeSectionImage(
+    @Param('sectionId', ParseIntPipe) sectionId: number,
     @CurrentUser() user: User,
   ) {
-    return this.websiteService.removeImage(user, slot);
+    return this.sitePagesService.removeSectionImage(user, sectionId);
   }
 
   @Get('contacts')

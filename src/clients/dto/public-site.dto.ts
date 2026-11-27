@@ -4,6 +4,7 @@ import {
   PublicDrinkImageDto,
 } from '@/clients/dto/public-drink.dto';
 import { ClientStatus } from '@/clients/client-status.enum';
+import { SectionType } from '@/clients/website.types';
 import { Image } from '@/storage/entities/image.entity';
 
 export const toPublicImage = (
@@ -18,48 +19,44 @@ export const toPublicImage = (
       }
     : null;
 
-class PublicImageSection {
-  @ApiProperty({ type: () => PublicDrinkImageDto, nullable: true })
-  image: PublicDrinkImageDto | null;
-}
-
-class PublicHero extends PublicImageSection {
+/** A section of a page, a text that is null is not of its type or is not filled in (the site leaves it out) */
+export class PublicSectionDto {
+  @ApiProperty() sectionId: number;
+  @ApiProperty({ enum: SectionType }) type: SectionType;
   @ApiProperty({ nullable: true, type: String }) title: string | null;
   @ApiProperty({ nullable: true, type: String }) subtitle: string | null;
   @ApiProperty({ nullable: true, type: String }) text: string | null;
-  @ApiProperty({ nullable: true, type: String }) buttonText: string | null;
-}
-
-class PublicFeatured {
-  @ApiProperty({ nullable: true, type: String }) title: string | null;
-  @ApiProperty({ nullable: true, type: String }) buttonText: string | null;
-  @ApiProperty({ type: () => [PublicDrinkDto] }) drinks: PublicDrinkDto[];
-}
-
-class PublicStory extends PublicImageSection {
-  @ApiProperty({ nullable: true, type: String }) title: string | null;
   @ApiProperty({ nullable: true, type: String }) paragraph1: string | null;
   @ApiProperty({ nullable: true, type: String }) paragraph2: string | null;
   @ApiProperty({ nullable: true, type: String }) buttonText: string | null;
+  @ApiProperty({ type: () => PublicDrinkImageDto, nullable: true })
+  image: PublicDrinkImageDto | null;
+  @ApiProperty({
+    type: () => [PublicDrinkDto],
+    description: 'Only the recommended drinks section has drinks',
+  })
+  drinks: PublicDrinkDto[];
 }
 
-class PublicPromo extends PublicImageSection {
-  @ApiProperty({ nullable: true, type: String }) title: string | null;
-  @ApiProperty({ nullable: true, type: String }) text: string | null;
-  @ApiProperty({ nullable: true, type: String }) buttonText: string | null;
-}
-
-class PublicSeo {
+class PublicSeoDto {
   @ApiProperty({ nullable: true, type: String }) title: string | null;
   @ApiProperty({ nullable: true, type: String }) description: string | null;
-  @ApiProperty({ nullable: true, type: String }) menuTitle: string | null;
-  @ApiProperty({ nullable: true, type: String }) menuDescription: string | null;
   @ApiProperty({
     type: () => PublicDrinkImageDto,
     nullable: true,
-    description: 'The picture shown when the site is shared',
+    description: 'The picture shown when the page is shared',
   })
   image: PublicDrinkImageDto | null;
+}
+
+/** A published page, its shown sections in order */
+export class PublicPageDto {
+  @ApiProperty() title: string;
+  @ApiProperty({ description: 'The address, empty for the home page' })
+  slug: string;
+  @ApiProperty({ type: () => PublicSeoDto }) seo: PublicSeoDto;
+  @ApiProperty({ type: () => [PublicSectionDto] })
+  sections: PublicSectionDto[];
 }
 
 /** Everything a white label site shows, a text that is null means the site uses its own default text */
@@ -79,9 +76,9 @@ export class PublicSiteDto {
   @ApiProperty({ nullable: true, type: String }) workingHours: string | null;
   @ApiProperty({ type: () => PublicDrinkImageDto, nullable: true })
   logo: PublicDrinkImageDto | null;
-  @ApiProperty({ type: () => PublicHero }) hero: PublicHero;
-  @ApiProperty({ type: () => PublicFeatured }) featured: PublicFeatured;
-  @ApiProperty({ type: () => PublicStory }) story: PublicStory;
-  @ApiProperty({ type: () => PublicPromo }) promo: PublicPromo;
-  @ApiProperty({ type: () => PublicSeo }) seo: PublicSeo;
+  @ApiProperty({
+    type: () => [PublicPageDto],
+    description: 'The published pages in the order of the menu',
+  })
+  pages: PublicPageDto[];
 }

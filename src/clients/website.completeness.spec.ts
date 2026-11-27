@@ -1,103 +1,139 @@
 import { getCompleteness } from '@/clients/website.completeness';
-import { Client } from '@/clients/entities/client.entity';
+import { Page } from '@/clients/entities/page.entity';
 
-const complete = (): Parameters<typeof getCompleteness>[0] => ({
+type General = Parameters<typeof getCompleteness>[0];
+
+const general = (): General => ({
   name: 'Drink House',
   city: 'Loznica',
   address: 'Filipa Kljajića 82',
   phone: '+381 15 000 000',
   instagram: 'https://instagram.com/x',
   workingHours: '7-23',
-  sections: {
-    hero: { title: 't', subtitle: 's', text: 'x', buttonText: 'b' },
-    featured: { title: 't', buttonText: 'b', drinkIds: [1] },
-    story: { title: 't', paragraph1: 'a', paragraph2: 'b', buttonText: 'c' },
-    promo: { title: 't', text: 'x', buttonText: 'b' },
-    seo: {
-      title: 't',
-      description: 'd',
-      menuTitle: 'm',
-      menuDescription: 'md',
-    },
-  },
   logoImageId: 1,
-  heroImageId: 2,
-  storyImageId: 3,
-  promoImageId: 4,
-  ogImageId: 5,
 });
+
+const section = (
+  sectionId: number,
+  type: string,
+  content: object,
+  imageId: number | null = 9,
+) => ({ sectionId, type, content, imageId });
+
+const completeSections = () => [
+  section(1, 'hero', { title: 't', subtitle: 's', text: 'x', buttonText: 'b' }),
+  section(2, 'featured', { title: 't', buttonText: 'b', drinkIds: [1] }, null),
+  section(3, 'story', {
+    title: 't',
+    paragraph1: 'a',
+    paragraph2: 'b',
+    buttonText: 'c',
+  }),
+  section(4, 'info', { title: 't', text: 'x', buttonText: 'b' }),
+];
+
+const page = (
+  pageId: number,
+  slug: string,
+  sections: object[] = [],
+  overrides: object = {},
+) =>
+  ({
+    pageId,
+    slug,
+    status: 'published',
+    seo: { title: 't', description: 'd', imageId: 5 },
+    pageSections: sections.map((s) => ({ section: s, isVisible: true })),
+    ...overrides,
+  }) as unknown as Page;
+
+const completePages = () => [
+  page(1, '', completeSections()),
+  page(2, 'karta-pica', [], { seo: { title: 'm', description: 'md' } }),
+];
 
 describe('getCompleteness', () => {
   it('should say complete when everything is filled in', () => {
-    expect(getCompleteness(complete())).toEqual({
+    expect(getCompleteness(general(), completePages())).toEqual({
       isComplete: true,
       missing: [],
     });
   });
 
-  it('should list everything that is missing on a new site', () => {
-    const result = getCompleteness({
-      ...complete(),
-      city: null,
-      phone: '  ',
-      sections: {},
-      logoImageId: null,
-      heroImageId: null,
-      storyImageId: null,
-      promoImageId: null,
-      ogImageId: null,
-    } as unknown as Client);
+  it('should need every general info and the logo', () => {
+    const result = getCompleteness(
+      { ...general(), city: null, phone: '  ', logoImageId: null },
+      completePages(),
+    );
 
     expect(result.isComplete).toBe(false);
-    expect(result.missing).toEqual(
-      expect.arrayContaining([
-        'general.city',
-        'general.phone',
-        'general.logo',
-        'hero.title',
-        'hero.image',
-        'featured.drinks',
-        'story.paragraph1',
-        'story.image',
-        'promo.text',
-        'promo.image',
-        'seo.title',
-        'seo.image',
-      ]),
-    );
-    expect(result.missing).not.toContain('general.name');
-  });
-
-  it('should need a picture for the hero, the story and the promo and the logo', () => {
-    const result = getCompleteness({
-      ...complete(),
-      heroImageId: null,
-      logoImageId: null,
-    } as never);
-
-    expect(result.missing).toEqual(['general.logo', 'hero.image']);
-  });
-
-  it('should need the SEO texts and the picture for sharing', () => {
-    const c = complete();
-    c.sections = { ...c.sections, seo: { title: 't' } };
-    c.ogImageId = null;
-
-    expect(getCompleteness(c).missing).toEqual([
-      'seo.description',
-      'seo.menuTitle',
-      'seo.menuDescription',
-      'seo.image',
+    expect(result.missing).toEqual([
+      'general.city',
+      'general.phone',
+      'general.logo',
     ]);
   });
 
-  it('should need at least one recommended drink', () => {
-    const c = complete();
-    c.sections = {
-      ...c.sections,
-      featured: { title: 't', buttonText: 'b', drinkIds: [] },
-    };
+  it('should list every missing text and picture of a new section', () => {
+    const pages = [
+      page(1, '', [
+        section(7, 'hero', {}, null),
+        section(8, 'featured', {}, null),
+        section(9, 'info', { title: 't' }, null),
+      ]),
+    ];
 
-    expect(getCompleteness(c).missing).toEqual(['featured.drinks']);
+    expect(getCompleteness(general(), pages).missing).toEqual([
+      'section.7.title',
+      'section.7.subtitle',
+      'section.7.text',
+      'section.7.buttonText',
+      'section.7.image',
+      'section.8.title',
+      'section.8.buttonText',
+      'section.8.drinks',
+      'section.9.text',
+      'section.9.buttonText',
+      'section.9.image',
+    ]);
+  });
+
+  it('should need the SEO texts of every published page, the picture for sharing only on the home page', () => {
+    const pages = [
+      page(1, '', [], {
+        seo: { title: null, description: 'd', imageId: null },
+      }),
+      page(3, 'o-nama', [], { seo: { title: 't', description: ' ' } }),
+    ];
+
+    expect(getCompleteness(general(), pages).missing).toEqual([
+      'page.1.seoTitle',
+      'page.1.seoImage',
+      'page.3.seoDescription',
+    ]);
+  });
+
+  it('should not check a draft page or a hidden section', () => {
+    const hidden = page(1, '');
+    hidden.pageSections = [
+      { section: section(7, 'hero', {}, null), isVisible: false },
+    ] as never;
+    const draft = page(3, 'o-nama', [section(8, 'story', {})], {
+      status: 'draft',
+      seo: {},
+    });
+
+    expect(getCompleteness(general(), [hidden, draft]).missing).toEqual([]);
+  });
+
+  it('should check a section on more pages once', () => {
+    const shared = section(7, 'info', {}, null);
+    const pages = [page(1, '', [shared]), page(3, 'o-nama', [shared])];
+
+    expect(
+      getCompleteness(general(), pages).missing.filter((key) =>
+        key.startsWith('section.7.'),
+      ),
+    ).toHaveLength(4);
   });
 });

@@ -8,9 +8,7 @@ const check = (plain: object) =>
 describe('UpdateWebsiteDto', () => {
   it('should accept an empty body and a partial one', async () => {
     expect(await check({})).toEqual([]);
-    expect(await check({ city: 'Šabac', hero: { title: 'Naslov' } })).toEqual(
-      [],
-    );
+    expect(await check({ city: 'Šabac' })).toEqual([]);
   });
 
   it('should accept a complete body of every kind', async () => {
@@ -20,14 +18,6 @@ describe('UpdateWebsiteDto', () => {
         phone: '+381 15 000 000',
         instagram: 'https://instagram.com/drinkhouse',
         workingHours: 'Ponedeljak: 07:00-19:00\nUtorak: 07:00-19:00',
-        story: { paragraph1: 'a', paragraph2: 'b' },
-        featured: { drinkIds: [1, 2] },
-        seo: {
-          title: 'Drink House',
-          description: 'Pića u Beogradu',
-          menuTitle: 'Karta pića',
-          menuDescription: 'Sva pića',
-        },
       }),
     ).toEqual([]);
   });
@@ -41,22 +31,7 @@ describe('UpdateWebsiteDto', () => {
     [{ phone: '' }],
     [{ phone: 'abc' }],
     [{ workingHours: '' }],
-    [{ hero: { title: '' } }],
-    [{ hero: { buttonText: '  ' } }],
-    [{ story: { paragraph2: '' } }],
-    [{ promo: { text: '' } }],
-    [{ featured: { title: '' } }],
-    [{ seo: { title: '' } }],
-    [{ seo: { title: 'x'.repeat(71) } }],
-    [{ seo: { description: 'x'.repeat(161) } }],
-    [{ seo: { menuDescription: '' } }],
-    [{ featured: { drinkIds: [] } }],
     [{ city: 'x'.repeat(101) }],
-    [{ hero: { title: 'x'.repeat(151) } }],
-    [{ featured: { drinkIds: [1, 1] } }],
-    [{ featured: { drinkIds: Array.from({ length: 11 }, (_, i) => i + 1) } }],
-    [{ featured: { drinkIds: [0] } }],
-    [{ story: { paragraph1: 5 } }],
   ])('should reject %j', async (plain) => {
     expect((await check(plain)).length).toBeGreaterThan(0);
   });
@@ -64,10 +39,8 @@ describe('UpdateWebsiteDto', () => {
   it('should trim the texts', () => {
     const dto = plainToInstance(UpdateWebsiteDto, {
       city: '  Loznica ',
-      hero: { title: ' T ' },
     });
 
     expect(dto.city).toBe('Loznica');
-    expect(dto.hero?.title).toBe('T');
   });
 });

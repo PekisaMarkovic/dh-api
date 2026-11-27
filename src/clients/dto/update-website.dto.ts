@@ -1,29 +1,21 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform, Type } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import {
-  ArrayMaxSize,
-  ArrayMinSize,
-  ArrayUnique,
-  IsArray,
-  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
   Matches,
   MaxLength,
-  Min,
-  ValidateNested,
 } from 'class-validator';
-import { MAX_FEATURED_DRINKS } from '@/clients/website.constants';
 
-const trim = ({ value }: { value: unknown }) =>
+export const trim = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() : value;
 
 /**
- * A text of the site. It is optional (a form of one tab sends only its own fields), but when it is sent it can not be empty:
+ * A text of the site. It is optional (a form sends only its own fields), but when it is sent it can not be empty:
  * every text of the site is needed before the site can be published.
  */
-const text = (max: number) => {
+export const text = (max: number) => {
   return (target: object, key: string) => {
     ApiPropertyOptional({ maxLength: max })(target, key);
     Transform(trim)(target, key);
@@ -34,52 +26,7 @@ const text = (max: number) => {
   };
 };
 
-export class HeroSectionDto {
-  @text(150) title?: string;
-  @text(150) subtitle?: string;
-  @text(500) text?: string;
-  @text(60) buttonText?: string;
-}
-
-export class FeaturedSectionDto {
-  @text(150) title?: string;
-  @text(60) buttonText?: string;
-
-  @ApiPropertyOptional({
-    type: [Number],
-    description: `The picked drinks (an even number: 2, 4, ... at most ${MAX_FEATURED_DRINKS}), in the order they are shown`,
-  })
-  @IsOptional()
-  @IsArray()
-  @ArrayMinSize(1)
-  @ArrayMaxSize(MAX_FEATURED_DRINKS)
-  @ArrayUnique()
-  @IsInt({ each: true })
-  @Min(1, { each: true })
-  drinkIds?: number[];
-}
-
-export class StorySectionDto {
-  @text(150) title?: string;
-  @text(1000) paragraph1?: string;
-  @text(1000) paragraph2?: string;
-  @text(60) buttonText?: string;
-}
-
-export class PromoSectionDto {
-  @text(150) title?: string;
-  @text(1000) text?: string;
-  @text(60) buttonText?: string;
-}
-
-/** The texts Google shows: the title (about 60 characters) and the description (about 155) of the site and of the menu page */
-export class SeoSectionDto {
-  @text(70) title?: string;
-  @text(160) description?: string;
-  @text(70) menuTitle?: string;
-  @text(160) menuDescription?: string;
-}
-
+/** The general info of the site, the pages and the sections have their own routes */
 export class UpdateWebsiteDto {
   // ---- general info ----
   @ApiPropertyOptional({ example: 'Drink House' })
@@ -111,35 +58,4 @@ export class UpdateWebsiteDto {
     message: 'instagram must be an address (https://...)',
   })
   instagram?: string;
-
-  // ---- sections ----
-  @ApiPropertyOptional({ type: () => HeroSectionDto })
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => HeroSectionDto)
-  hero?: HeroSectionDto;
-
-  @ApiPropertyOptional({ type: () => FeaturedSectionDto })
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => FeaturedSectionDto)
-  featured?: FeaturedSectionDto;
-
-  @ApiPropertyOptional({ type: () => StorySectionDto })
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => StorySectionDto)
-  story?: StorySectionDto;
-
-  @ApiPropertyOptional({ type: () => PromoSectionDto })
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => PromoSectionDto)
-  promo?: PromoSectionDto;
-
-  @ApiPropertyOptional({ type: () => SeoSectionDto })
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => SeoSectionDto)
-  seo?: SeoSectionDto;
 }

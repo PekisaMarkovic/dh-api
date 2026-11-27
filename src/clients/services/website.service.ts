@@ -11,21 +11,24 @@ import { UpdateWebsiteDto } from '@/clients/dto/update-website.dto';
 import { ClientStatus } from '@/clients/client-status.enum';
 import { Client } from '@/clients/entities/client.entity';
 import { ClientContactedBy } from '@/clients/entities/client-contacted-by.entity';
+import { Page } from '@/clients/entities/page.entity';
+import { Section } from '@/clients/entities/section.entity';
 import {
   getCompleteness,
   WebsiteCompleteness,
 } from '@/clients/website.completeness';
 import {
-  WEBSITE_SLOT_CONFIG,
-  WebsiteImageSlot,
+  DEFAULT_PAGES,
+  LOGO_FOLDER,
+  LOGO_MAX_SIDE,
 } from '@/clients/website.constants';
-import { ClientSections, SectionName } from '@/clients/website.types';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { Drink } from '@/drinks/entities/drink.entity';
 import { SiteRevalidationService } from '@/clients/services/site-revalidation.service';
 import { ImageOptimizerService } from '@/storage/services/image-optimizer.service';
 import { ImagesService } from '@/storage/services/images.service';
 import { StorageService } from '@/storage/services/storage.service';
+import { Image } from '@/storage/entities/image.entity';
 import { User } from '@/users/entities/user.entity';
 
 const GENERAL_FIELDS = [
@@ -35,24 +38,31 @@ const GENERAL_FIELDS = [
   'instagram',
   'workingHours',
 ] as const;
-const SECTION_NAMES: SectionName[] = [
-  'hero',
-  'featured',
-  'story',
-  'promo',
-  'seo',
-];
-const IMAGE_RELATIONS = {
-  logoImage: true,
-  heroImage: true,
-  storyImage: true,
-  promoImage: true,
-  ogImage: true,
-} as const;
 
-/** The site as the dashboard gets it: the row, its pictures and the names of the picked drinks */
+export interface WebsitePageDto {
+  pageId: number;
+  title: string;
+  slug: string;
+  status: ClientStatus;
+  position: number;
+  seo: {
+    title: string | null;
+    description: string | null;
+    image: Image | null;
+  };
+  /** the sections of the page in their order */
+  sections: { sectionId: number; position: number; isVisible: boolean }[];
+}
+
+export type WebsiteSectionDto = Section & {
+  /** the picked recommended drinks with their names and images (only for the recommended drinks) */
+  drinks: { drinkId: number; name: string; imageUrl: string | null }[];
+};
+
+/** The site as the dashboard gets it: the general info, every page with its sections and every section of the site */
 export type WebsiteDto = Client & {
-  featuredDrinks: { drinkId: number; name: string; imageUrl: string | null }[];
+  pages: WebsitePageDto[];
+  sections: WebsiteSectionDto[];
   /** what is still missing before the site can be published */
   completeness: WebsiteCompleteness;
 };
@@ -67,6 +77,10 @@ export class WebsiteService {
     private readonly contactRepository: Repository<ClientContactedBy>,
     @InjectRepository(Drink)
     private readonly drinkRepository: Repository<Drink>,
+    @InjectRepository(Page)
+    private readonly pageRepository: Repository<Page>,
+    @InjectRepository(Section)
+    private readonly sectionRepository: Repository<Section>,
     private readonly companiesService: CompaniesService,
     private readonly storageService: StorageService,
     private readonly imageOptimizer: ImageOptimizerService,
@@ -75,17 +89,41 @@ export class WebsiteService {
   ) {}
 
   /**
-   * The site of the company of the user (a company can have more, the oldest one is managed),
-   * with the names of the picked drinks (`featuredDrinks`) so the dashboard can show them.
+   * The site of the company of the user with its pages and sections (a company can have more sites, the oldest one is managed).
    * @throws NotFoundException if the company has no site: it is not a white label company
    */
   async findOne(user: User): Promise<WebsiteDto> {
     const client = await this.load(user);
+    const pages = await this.findPages(client.clientId);
+    const sections = await this.sectionRepository.find({
+      where: { clientId: client.clientId },
+      relations: { image: true },
+      order: { sectionId: 'ASC' },
+    });
 
     return {
       ...client,
-      featuredDrinks: await this.featuredDrinks(client),
-      completeness: getCompleteness(client),
+      pages: pages.map((page) => ({
+        pageId: page.pageId,
+        title: page.title,
+        slug: page.slug,
+        status: page.status,
+        position: page.position,
+        seo: {
+          title: page.seo.title,
+          description: page.seo.description,
+          image: page.seo.image,
+        },
+        sections: page.pageSections.map(
+          ({ sectionId, position, isVisible }) => ({
+            sectionId,
+            position,
+            isVisible,
+          }),
+        ),
+      })),
+      sections: await this.withDrinks(client.companyId, sections),
+      completeness: getCompleteness(client, pages),
     };
   }
 
@@ -95,7 +133,8 @@ export class WebsiteService {
    */
   async publish(user: User): Promise<WebsiteDto> {
     const client = await this.load(user);
-    const { isComplete, missing } = getCompleteness(client);
+    const pages = await this.findPages(client.clientId);
+    const { isComplete, missing } = getCompleteness(client, pages);
 
     if (!isComplete) {
       throw new BadRequestException(
@@ -131,40 +170,76 @@ export class WebsiteService {
     return this.findOne(user);
   }
 
-  /** The names and images of the picked drinks, in the picked order (a deleted drink is skipped) */
-  private async featuredDrinks(client: Client) {
-    const ids = client.sections?.featured?.drinkIds ?? [];
-
-    if (!ids.length) {
-      return [];
-    }
-
-    const drinks = await this.drinkRepository.find({
-      where: { drinkId: In(ids), companyId: client.companyId },
+  /** The pages of the site in the order of the menu, with their SEO and their sections in order */
+  findPages(clientId: string): Promise<Page[]> {
+    return this.pageRepository.find({
+      where: { clientId },
+      relations: { seo: { image: true }, pageSections: { section: true } },
+      order: {
+        position: 'ASC',
+        pageId: 'ASC',
+        pageSections: { position: 'ASC' },
+      },
     });
-    const byId = new Map(drinks.map((drink) => [drink.drinkId, drink]));
-
-    return ids
-      .map((id) => byId.get(id))
-      .filter((drink): drink is Drink => !!drink)
-      .map((drink) => ({
-        drinkId: drink.drinkId,
-        name: drink.name,
-        imageUrl: drink.image?.url ?? null,
-      }));
   }
 
-  private async load(user: User): Promise<Client> {
+  /** The names and images of the picked drinks of every recommended drinks section, in the picked order (a deleted drink is skipped) */
+  private async withDrinks(
+    companyId: number,
+    sections: Section[],
+  ): Promise<WebsiteSectionDto[]> {
+    const ids = sections.flatMap((section) => section.content?.drinkIds ?? []);
+    const drinks = ids.length
+      ? await this.drinkRepository.find({
+          where: { drinkId: In(ids), companyId },
+        })
+      : [];
+    const byId = new Map(drinks.map((drink) => [drink.drinkId, drink]));
+
+    return sections.map((section) => ({
+      ...section,
+      drinks: (section.content?.drinkIds ?? [])
+        .map((id) => byId.get(id))
+        .filter((drink): drink is Drink => !!drink)
+        .map((drink) => ({
+          drinkId: drink.drinkId,
+          name: drink.name,
+          imageUrl: drink.image?.url ?? null,
+        })),
+    }));
+  }
+
+  /** The site of the company of the user; a site without pages (made by hand in the database) gets the home page and the menu */
+  async load(user: User): Promise<Client> {
     const client = user.companyId
       ? await this.clientRepository.findOne({
           where: { companyId: user.companyId },
-          relations: IMAGE_RELATIONS,
+          relations: { logoImage: true },
           order: { createdAt: 'ASC' },
         })
       : null;
 
     if (!client) {
       throw new NotFoundException('This company has no website.');
+    }
+
+    if (
+      !(await this.pageRepository.count({
+        where: { clientId: client.clientId },
+      }))
+    ) {
+      await this.pageRepository.save(
+        DEFAULT_PAGES.map(({ slug, title }, position) =>
+          this.pageRepository.create({
+            clientId: client.clientId,
+            slug,
+            title,
+            position,
+            status: ClientStatus.PUBLISHED,
+            seo: {},
+          }),
+        ),
+      );
     }
 
     return client;
@@ -184,55 +259,6 @@ export class WebsiteService {
       }
     }
 
-    if (dto.featured?.drinkIds?.length) {
-      // the site shows the recommended drinks in pairs
-      if (dto.featured.drinkIds.length % 2) {
-        throw new BadRequestException(
-          'Pick an even number of drinks (2, 4, 6, 8 or 10).',
-        );
-      }
-
-      await this.assertDrinksBelongToCompany(
-        dto.featured.drinkIds,
-        client.companyId,
-      );
-    }
-
-    const sections: ClientSections = { ...client.sections };
-
-    for (const name of SECTION_NAMES) {
-      const incoming = dto[name] as Record<string, unknown> | undefined;
-
-      if (!incoming) {
-        continue;
-      }
-
-      const merged: Record<string, unknown> = {
-        ...(sections[name] as Record<string, unknown> | undefined),
-      };
-
-      for (const [key, value] of Object.entries(incoming)) {
-        if (value === undefined) {
-          continue;
-        }
-
-        // an empty text or an empty list removes the value (the site uses its default)
-        const isEmpty =
-          value === '' ||
-          value === null ||
-          (Array.isArray(value) && !value.length);
-
-        if (isEmpty) {
-          delete merged[key];
-        } else {
-          merged[key] = value;
-        }
-      }
-
-      sections[name] = merged;
-    }
-
-    client.sections = sections;
     await this.clientRepository.save(client);
     await this.siteRevalidation.notify();
 
@@ -240,68 +266,92 @@ export class WebsiteService {
   }
 
   /**
-   * Saves a picture of the site as a WebP into `<production|local>/company-<name>-<id>/client/<section>/`,
-   * the old one is deleted.
+   * Saves a picture as a WebP into `<production|local>/company-<name>-<id>/client/<folder>/`, points `save` to it
+   * and deletes the old one. The new file is deleted again when it can not be pointed to.
    */
-  async setImage(
-    user: User,
-    slot: WebsiteImageSlot,
+  async replaceImage(
+    client: Client,
+    target: { folder: string; maxSide: number; old: Image | null },
     file: Express.Multer.File,
-    altText?: string,
-  ): Promise<WebsiteDto> {
+    altText: string | undefined,
+    save: (imageId: number) => Promise<unknown>,
+  ) {
     if (!file?.buffer?.length) {
       throw new BadRequestException('The image is missing.');
     }
 
-    const client = await this.load(user);
-    const config = WEBSITE_SLOT_CONFIG[slot];
     const optimized = await this.imageOptimizer.toWebp(
       file.buffer,
-      config.maxSide,
+      target.maxSide,
     );
     const company = await this.companiesService.findOne(client.companyId);
-    const old = client[config.relation];
-
     const image = await this.imagesService.create({
       companyId: client.companyId,
-      folder: this.storageService.clientFolder(company, config.folder),
+      folder: this.storageService.clientFolder(company, target.folder),
       image: optimized,
       altText: altText || client.name,
     });
 
     try {
-      await this.clientRepository.update(
-        { clientId: client.clientId },
-        { [config.column]: image.imageId },
-      );
+      await save(image.imageId);
     } catch (error) {
       await this.imagesService.remove(image);
       throw error;
     }
 
+    if (target.old) {
+      await this.imagesService.remove(target.old);
+    }
+
+    await this.siteRevalidation.notify();
+  }
+
+  /** the site loads its content again */
+  notifySite() {
+    return this.siteRevalidation.notify();
+  }
+
+  /** Deletes a picture after `clear` stopped pointing to it */
+  async deleteImage(old: Image | null, clear: () => Promise<unknown>) {
     if (old) {
+      await clear();
       await this.imagesService.remove(old);
     }
 
     await this.siteRevalidation.notify();
+  }
+
+  async setLogo(
+    user: User,
+    file: Express.Multer.File,
+    altText?: string,
+  ): Promise<WebsiteDto> {
+    const client = await this.load(user);
+
+    await this.replaceImage(
+      client,
+      { folder: LOGO_FOLDER, maxSide: LOGO_MAX_SIDE, old: client.logoImage },
+      file,
+      altText,
+      (imageId) =>
+        this.clientRepository.update(
+          { clientId: client.clientId },
+          { logoImageId: imageId },
+        ),
+    );
 
     return this.findOne(user);
   }
 
-  async removeImage(user: User, slot: WebsiteImageSlot): Promise<WebsiteDto> {
+  async removeLogo(user: User): Promise<WebsiteDto> {
     const client = await this.load(user);
-    const config = WEBSITE_SLOT_CONFIG[slot];
-    const old = client[config.relation];
 
-    if (old) {
-      await this.clientRepository.update(
+    await this.deleteImage(client.logoImage, () =>
+      this.clientRepository.update(
         { clientId: client.clientId },
-        { [config.column]: null },
-      );
-      await this.imagesService.remove(old);
-    }
-
-    await this.siteRevalidation.notify();
+        { logoImageId: null },
+      ),
+    );
 
     return this.findOne(user);
   }
@@ -314,19 +364,5 @@ export class WebsiteService {
       where: { clientId: client.clientId },
       order: { createdAt: 'DESC', contactId: 'DESC' },
     });
-  }
-
-  /** The picked drinks have to be drinks of the company of the site, not of another one */
-  private async assertDrinksBelongToCompany(
-    drinkIds: number[],
-    companyId: number,
-  ) {
-    const found = await this.drinkRepository.count({
-      where: { drinkId: In(drinkIds), companyId },
-    });
-
-    if (found !== drinkIds.length) {
-      throw new BadRequestException('One of the picked drinks does not exist.');
-    }
   }
 }
