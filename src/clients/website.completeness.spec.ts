@@ -126,6 +126,31 @@ describe('getCompleteness', () => {
     expect(getCompleteness(general(), [hidden, draft]).missing).toEqual([]);
   });
 
+  it('should need text in a text section, empty paragraphs are not text', () => {
+    const pages = [
+      page(1, '', [section(7, 'text', { html: '<p></p>' }, null)]),
+    ];
+
+    expect(getCompleteness(general(), pages).missing).toEqual([
+      'section.7.html',
+    ]);
+  });
+
+  it('should not need the button text of a hero without a button', () => {
+    const pages = [
+      page(1, '', [
+        section(7, 'hero', {
+          title: 't',
+          subtitle: 's',
+          text: 'x',
+          showButton: false,
+        }),
+      ]),
+    ];
+
+    expect(getCompleteness(general(), pages).missing).toEqual([]);
+  });
+
   it('should check a section on more pages once', () => {
     const shared = section(7, 'info', {}, null);
     const pages = [page(1, '', [shared]), page(3, 'o-nama', [shared])];

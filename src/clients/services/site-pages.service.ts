@@ -19,6 +19,8 @@ import { PageSection } from '@/clients/entities/page-section.entity';
 import { Section } from '@/clients/entities/section.entity';
 import { Seo } from '@/clients/entities/seo.entity';
 import {
+  HOME_SLUG,
+  MAX_MENU_PAGES,
   isSystemSlug,
   RESERVED_SLUGS,
   SECTION_CONFIG,
@@ -27,6 +29,7 @@ import {
 } from '@/clients/website.constants';
 import { SectionContent, SectionType } from '@/clients/website.types';
 import { WebsiteDto, WebsiteService } from '@/clients/services/website.service';
+import { sanitizeRichText } from '@/clients/rich-text';
 import { slugify } from '@/common/helpers/slug.helpers';
 import { Drink } from '@/drinks/entities/drink.entity';
 import { User } from '@/users/entities/user.entity';
@@ -37,6 +40,7 @@ const DEFAULT_SECTION_NAMES: Record<SectionType, string> = {
   [SectionType.FEATURED]: 'Preporučeno',
   [SectionType.STORY]: 'Priča',
   [SectionType.INFO]: 'Info',
+  [SectionType.TEXT]: 'Tekst',
 };
 
 /** The pages of a site and their sections (the dashboard page "Web sajt"). Every change answers with the whole site */
@@ -109,6 +113,26 @@ export class SitePagesService {
       }
 
       page.status = dto.status;
+    }
+
+    if (dto.isInMenu !== undefined && dto.isInMenu !== page.isInMenu) {
+      if (page.slug === HOME_SLUG) {
+        throw new BadRequestException(
+          'The home page is not in the menu, the logo leads to it.',
+        );
+      }
+
+      const inMenu = await this.pageRepository.count({
+        where: { clientId: client.clientId, isInMenu: true },
+      });
+
+      if (dto.isInMenu && inMenu >= MAX_MENU_PAGES) {
+        throw new BadRequestException(
+          `At most ${MAX_MENU_PAGES} pages can be in the menu.`,
+        );
+      }
+
+      page.isInMenu = dto.isInMenu;
     }
 
     if (dto.title !== undefined) page.title = dto.title;
@@ -227,8 +251,13 @@ export class SitePagesService {
       const value = dto[field as keyof UpdateSectionDto];
 
       if (typeof value === 'string') {
-        (content as Record<string, unknown>)[field] = value;
+        (content as Record<string, unknown>)[field] =
+          field === 'html' ? sanitizeRichText(value) : value;
       }
+    }
+
+    if (section.type === SectionType.HERO && dto.showButton !== undefined) {
+      content.showButton = dto.showButton;
     }
 
     if (section.type === SectionType.FEATURED && dto.drinkIds) {

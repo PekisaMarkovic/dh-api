@@ -29,6 +29,13 @@ export class PublicSectionDto {
   @ApiProperty({ nullable: true, type: String }) paragraph1: string | null;
   @ApiProperty({ nullable: true, type: String }) paragraph2: string | null;
   @ApiProperty({ nullable: true, type: String }) buttonText: string | null;
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description:
+      'Only a text section: sanitized HTML (p, h2-h4, strong, em, u, s, lists, blockquote, links)',
+  })
+  html: string | null;
   @ApiProperty({ type: () => PublicDrinkImageDto, nullable: true })
   image: PublicDrinkImageDto | null;
   @ApiProperty({
@@ -54,6 +61,8 @@ export class PublicPageDto {
   @ApiProperty() title: string;
   @ApiProperty({ description: 'The address, empty for the home page' })
   slug: string;
+  @ApiProperty({ description: 'In the main menu, else in the footer' })
+  isInMenu: boolean;
   @ApiProperty({ type: () => PublicSeoDto }) seo: PublicSeoDto;
   @ApiProperty({ type: () => [PublicSectionDto] })
   sections: PublicSectionDto[];

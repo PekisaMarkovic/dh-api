@@ -193,6 +193,42 @@ describe('SitePagesService', () => {
       expect(pageRepository.save).toHaveBeenCalled();
     });
 
+    it('should put a page in the menu while there is room', async () => {
+      pageRepository.count.mockResolvedValue(4);
+
+      await service.updatePage(user, 3, { isInMenu: true });
+
+      expect(pageRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ isInMenu: true }),
+      );
+    });
+
+    it('should refuse a sixth page in the menu and the home page in the menu', async () => {
+      pageRepository.count.mockResolvedValue(5);
+
+      await expect(
+        service.updatePage(user, 3, { isInMenu: true }),
+      ).rejects.toThrow(BadRequestException);
+
+      pageRepository.findOne.mockResolvedValue(page({ slug: '' }));
+      pageRepository.count.mockResolvedValue(0);
+      await expect(
+        service.updatePage(user, 3, { isInMenu: true }),
+      ).rejects.toThrow(BadRequestException);
+      expect(pageRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('should take a page out of the menu', async () => {
+      pageRepository.findOne.mockResolvedValue(page({ isInMenu: true }));
+      pageRepository.count.mockResolvedValue(5);
+
+      await service.updatePage(user, 3, { isInMenu: false });
+
+      expect(pageRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ isInMenu: false }),
+      );
+    });
+
     it('should say 404 for a page of another site', async () => {
       pageRepository.findOne.mockResolvedValue(null);
 
@@ -308,6 +344,33 @@ describe('SitePagesService', () => {
         }),
       );
       expect(drinkRepository.count).not.toHaveBeenCalled();
+    });
+
+    it('should sanitize the HTML of a text section before it is saved', async () => {
+      sectionRepository.findOne.mockResolvedValue(
+        section({ type: SectionType.TEXT, content: {} }),
+      );
+
+      await service.updateSection(user, 7, {
+        html: '<p onclick="x()">O <strong>nama</strong></p><script>alert(1)</script>',
+        title: 'not of a text section',
+      });
+
+      expect(sectionRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          content: { html: '<p>O <strong>nama</strong></p>' },
+        }),
+      );
+    });
+
+    it('should hide the button of a hero', async () => {
+      await service.updateSection(user, 7, { showButton: false });
+
+      expect(sectionRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          content: { title: 'Stari', text: 'Tekst', showButton: false },
+        }),
+      );
     });
 
     it('should save the picked drinks of the company', async () => {

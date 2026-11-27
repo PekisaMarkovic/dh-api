@@ -4,6 +4,8 @@ export enum SectionType {
   FEATURED = 'featured',
   STORY = 'story',
   INFO = 'info',
+  /** free text from the rich text editor (headings, bold, lists, links), e.g. the page "O nama" */
+  TEXT = 'text',
 }
 
 /** The texts of a section, everything is optional: what is missing the site fills with its own default text */
@@ -12,6 +14,8 @@ export interface HeroContent {
   subtitle: string;
   text: string;
   buttonText: string;
+  /** the button is shown unless this is false, then it needs no text */
+  showButton: boolean;
 }
 
 export interface FeaturedContent {
@@ -34,6 +38,11 @@ export interface InfoContent {
   buttonText: string;
 }
 
+export interface TextContent {
+  /** sanitized HTML, see rich-text.ts */
+  html: string;
+}
+
 export type SectionContent = Partial<
-  HeroContent & FeaturedContent & StoryContent & InfoContent
+  HeroContent & FeaturedContent & StoryContent & InfoContent & TextContent
 >;

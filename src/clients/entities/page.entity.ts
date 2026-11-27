@@ -15,6 +15,7 @@ import { Client } from '@/clients/entities/client.entity';
 import { PageSection } from '@/clients/entities/page-section.entity';
 import { Seo } from '@/clients/entities/seo.entity';
 import { ClientStatus } from '@/clients/client-status.enum';
+import { MAX_MENU_PAGES } from '@/clients/website.constants';
 
 /** A page of a site: its address, its SEO and its sections in order */
 @Entity({ name: 'pages' })
@@ -41,6 +42,12 @@ export class Page {
   })
   @Column({ type: 'varchar', length: 20, default: ClientStatus.DRAFT })
   status: ClientStatus;
+
+  @ApiProperty({
+    description: `In the main menu of the site (at most ${MAX_MENU_PAGES}), else in the footer`,
+  })
+  @Column({ name: 'is_in_menu', type: 'boolean', default: false })
+  isInMenu: boolean;
 
   @ApiProperty({ description: 'The order of the pages in the menu' })
   @Column({ type: 'int', default: 0 })

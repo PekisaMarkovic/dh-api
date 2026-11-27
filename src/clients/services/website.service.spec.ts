@@ -111,6 +111,7 @@ describe('WebsiteService', () => {
           title: 'Početna',
           slug: '',
           status: 'published',
+          isInMenu: false,
           position: 0,
           seo: { title: 't', description: null, image: null },
           pageSections: [
@@ -128,6 +129,7 @@ describe('WebsiteService', () => {
           title: 'Početna',
           slug: '',
           status: 'published',
+          isInMenu: false,
           position: 0,
           seo: { title: 't', description: null, image: null },
           sections: [
@@ -169,7 +171,11 @@ describe('WebsiteService', () => {
           status: 'published',
           position: 0,
         }),
-        expect.objectContaining({ slug: 'karta-pica', position: 1 }),
+        expect.objectContaining({
+          slug: 'karta-pica',
+          isInMenu: true,
+          position: 1,
+        }),
       ]);
     });
 

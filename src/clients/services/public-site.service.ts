@@ -62,6 +62,7 @@ export class PublicSiteService {
         pages.map(async (page) => ({
           title: page.title,
           slug: page.slug,
+          isInMenu: page.isInMenu,
           seo: {
             title: page.seo.title,
             description: page.seo.description,
@@ -93,7 +94,10 @@ export class PublicSiteService {
       text: content.text ?? null,
       paragraph1: content.paragraph1 ?? null,
       paragraph2: content.paragraph2 ?? null,
-      buttonText: content.buttonText ?? null,
+      // a hidden button has no text, so the site leaves it out
+      buttonText:
+        content.showButton === false ? null : (content.buttonText ?? null),
+      html: content.html ?? null,
       image: toPublicImage(section.image),
       drinks:
         section.type === SectionType.FEATURED

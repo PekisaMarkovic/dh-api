@@ -3,6 +3,7 @@ import { Client } from '@/clients/entities/client.entity';
 import { Page } from '@/clients/entities/page.entity';
 import { HOME_SLUG, SECTION_CONFIG } from '@/clients/website.constants';
 import { SectionType } from '@/clients/website.types';
+import { visibleText } from '@/clients/rich-text';
 
 const REQUIRED_GENERAL = [
   'name',
@@ -22,8 +23,9 @@ export interface WebsiteCompleteness {
   missing: string[];
 }
 
+// the HTML of a text section counts only when it has text (`<p></p>` is empty)
 const filled = (value: unknown) =>
-  typeof value === 'string' && value.trim().length > 0;
+  typeof value === 'string' && visibleText(value).length > 0;
 
 /**
  * What a site needs before it can be published: every general info and the logo, and on every published page
@@ -74,6 +76,11 @@ export const getCompleteness = (
       const content = (section.content ?? {}) as Record<string, unknown>;
 
       for (const field of config.texts) {
+        // a hidden button needs no text
+        if (field === 'buttonText' && section.content?.showButton === false) {
+          continue;
+        }
+
         if (!filled(content[field])) {
           missing.push(`section.${section.sectionId}.${field}`);
         }

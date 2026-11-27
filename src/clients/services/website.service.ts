@@ -44,6 +44,7 @@ export interface WebsitePageDto {
   title: string;
   slug: string;
   status: ClientStatus;
+  isInMenu: boolean;
   position: number;
   seo: {
     title: string | null;
@@ -108,6 +109,7 @@ export class WebsiteService {
         title: page.title,
         slug: page.slug,
         status: page.status,
+        isInMenu: page.isInMenu,
         position: page.position,
         seo: {
           title: page.seo.title,
@@ -229,11 +231,12 @@ export class WebsiteService {
       }))
     ) {
       await this.pageRepository.save(
-        DEFAULT_PAGES.map(({ slug, title }, position) =>
+        DEFAULT_PAGES.map(({ slug, title, isInMenu }, position) =>
           this.pageRepository.create({
             clientId: client.clientId,
             slug,
             title,
+            isInMenu,
             position,
             status: ClientStatus.PUBLISHED,
             seo: {},

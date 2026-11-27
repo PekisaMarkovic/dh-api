@@ -16,8 +16,13 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { text } from '@/clients/dto/update-website.dto';
+import { RICH_TEXT_MAX } from '@/clients/rich-text';
 import { ClientStatus } from '@/clients/client-status.enum';
-import { MAX_FEATURED_DRINKS, SLUG_PATTERN } from '@/clients/website.constants';
+import {
+  MAX_FEATURED_DRINKS,
+  MAX_MENU_PAGES,
+  SLUG_PATTERN,
+} from '@/clients/website.constants';
 import { SectionType } from '@/clients/website.types';
 
 const slug = (target: object, key: string) => {
@@ -54,6 +59,13 @@ export class UpdatePageDto {
   @IsOptional()
   @IsIn([ClientStatus.DRAFT, ClientStatus.PUBLISHED])
   status?: ClientStatus;
+
+  @ApiPropertyOptional({
+    description: `In the main menu (at most ${MAX_MENU_PAGES}), else in the footer. Not for the home page`,
+  })
+  @IsOptional()
+  @IsBoolean()
+  isInMenu?: boolean;
 
   @ApiPropertyOptional({ type: () => PageSeoDto })
   @IsOptional()
@@ -99,6 +111,16 @@ export class UpdateSectionDto {
   @text(1000) paragraph1?: string;
   @text(1000) paragraph2?: string;
   @text(60) buttonText?: string;
+
+  // only a text section: HTML from the rich text editor, it is sanitized before it is saved
+  @text(RICH_TEXT_MAX) html?: string;
+
+  @ApiPropertyOptional({
+    description: 'Only a hero: false hides its button (then it needs no text)',
+  })
+  @IsOptional()
+  @IsBoolean()
+  showButton?: boolean;
 
   @ApiPropertyOptional({
     type: [Number],

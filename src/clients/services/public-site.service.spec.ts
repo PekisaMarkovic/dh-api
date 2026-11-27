@@ -152,10 +152,29 @@ describe('PublicSiteService', () => {
         paragraph1: null,
         paragraph2: null,
         buttonText: null,
+        html: null,
         image: null,
         drinks: [],
       },
     ]);
+  });
+
+  it('should leave out the text of a hidden button', async () => {
+    pageRepository.find.mockResolvedValue([
+      home([
+        {
+          isVisible: true,
+          section: section(1, 'hero', {
+            buttonText: 'Ponuda',
+            showButton: false,
+          }),
+        },
+      ]),
+    ]);
+
+    const site = await service.find({ clientId: 'abc' } as Client);
+
+    expect(site.pages[0].sections[0].buttonText).toBeNull();
   });
 
   it('should tell the site whether the visitors can order', async () => {

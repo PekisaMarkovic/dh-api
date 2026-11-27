@@ -10,11 +10,14 @@ export const isSystemSlug = (slug: string) =>
 /** lowercase letters, digits and single dashes, e.g. o-nama */
 export const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
-/** The pages a site starts with */
+/** The pages a site starts with (the logo leads to the home page, so it is not in the menu) */
 export const DEFAULT_PAGES = [
-  { slug: HOME_SLUG, title: 'Početna' },
-  { slug: MENU_SLUG, title: 'Karta pića' },
+  { slug: HOME_SLUG, title: 'Početna', isInMenu: false },
+  { slug: MENU_SLUG, title: 'Karta pića', isInMenu: true },
 ] as const;
+
+/** The most pages in the main menu of the site, the other published pages are in the footer */
+export const MAX_MENU_PAGES = 5;
 
 /** What a section of each kind has: its texts, whether it has a picture and how big it is saved */
 export const SECTION_CONFIG: Record<
@@ -38,6 +41,7 @@ export const SECTION_CONFIG: Record<
     texts: ['title', 'text', 'buttonText'],
     maxSide: 1200,
   },
+  [SectionType.TEXT]: { texts: ['html'], maxSide: null },
 };
 
 /** the folder of the logo and of the pictures shown when a page is shared, in `<root>/company-<name>-<id>/client/<folder>` */
