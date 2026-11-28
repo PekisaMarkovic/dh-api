@@ -42,6 +42,7 @@ export const SECTION_CONFIG: Record<
     maxSide: 1200,
   },
   [SectionType.TEXT]: { texts: ['html'], maxSide: null },
+  [SectionType.CONTACT]: { texts: [], maxSide: null },
 };
 
 /** The pictures of the site itself (not of a page or a section), each is a column of `clients` */

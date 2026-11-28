@@ -6,6 +6,8 @@ export enum SectionType {
   INFO = 'info',
   /** free text from the rich text editor (headings, bold, lists, links), e.g. the page "O nama" */
   TEXT = 'text',
+  /** the contact (phone, social, map) and the contact form, as at the bottom of the home page */
+  CONTACT = 'contact',
 }
 
 /** The texts of a section, everything is optional: what is missing the site fills with its own default text */

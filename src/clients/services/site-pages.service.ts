@@ -41,6 +41,7 @@ const DEFAULT_SECTION_NAMES: Record<SectionType, string> = {
   [SectionType.STORY]: 'Priča',
   [SectionType.INFO]: 'Info',
   [SectionType.TEXT]: 'Tekst',
+  [SectionType.CONTACT]: 'Kontakt',
 };
 
 /** The pages of a site and their sections (the dashboard page "Web sajt"). Every change answers with the whole site */
