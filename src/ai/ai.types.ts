@@ -1,6 +1,14 @@
 export interface PurchaseItem {
   name: string;
   quantity: number;
+  /** the drink of the warehouse the AI matched the line to, null when none is the same drink */
+  drinkId: number | null;
+}
+
+/** A drink of the warehouse, sent to the AI so it can match the lines to them */
+export interface KnownDrink {
+  drinkId: number;
+  name: string;
 }
 
 export interface AiFile {
@@ -19,7 +27,10 @@ export interface PurchaseExtraction {
 
 /** One AI vendor, it only knows how to talk to it; limits and retries are in AiService */
 export interface AiProvider {
-  extractPurchaseItems(file: AiFile): Promise<PurchaseExtraction>;
+  extractPurchaseItems(
+    file: AiFile,
+    drinks: KnownDrink[],
+  ): Promise<PurchaseExtraction>;
 }
 
 export const PURCHASE_PROMPT =
@@ -34,6 +45,16 @@ export const PURCHASE_PROMPT =
   '(for example "Predracun", "Faktura", "Otpremnica"); ' +
   'documentNumber is the number of the document (for example "40/26").';
 
+/** The prompt with the drinks of the warehouse as they are now (a drink can be added or renamed at any time) */
+export const purchasePrompt = (drinks: KnownDrink[]): string =>
+  PURCHASE_PROMPT +
+  '\n\nThese are the drinks of the warehouse, one per line as "id: name". For every line item set drinkId ' +
+  'to the id of the same drink: the same product and the same size and packaging (0.33L is not 0.5L). ' +
+  'Names on documents are often shortened or written differently ("CC 0.5 PET" can be "Coca-Cola 0.5L"). ' +
+  'Set drinkId to 0 when none of them is the same drink, never guess.\n' +
+  (drinks.map((drink) => `${drink.drinkId}: ${drink.name}`).join('\n') ||
+    '(no drinks)');
+
 /** The name of the document, e.g. "PRIVATNA ZURKA Predracun 40/26"; null when the AI found none of it */
 export const composeTitle = (head: {
   buyerName?: string;
@@ -45,11 +66,15 @@ export const composeTitle = (head: {
     .filter(Boolean)
     .join(' ') || null;
 
-/** Keeps only valid lines, so a provider can not return rubbish */
-export const cleanItems = (items: PurchaseItem[]): PurchaseItem[] =>
+/** Keeps only valid lines and only drinks that were sent, so a provider can not return rubbish */
+export const cleanItems = (
+  items: Partial<PurchaseItem>[],
+  drinkIds: Set<number>,
+): PurchaseItem[] =>
   items
     .map((item) => ({
       name: String(item.name ?? '').trim(),
       quantity: Math.trunc(Number(item.quantity)),
+      drinkId: drinkIds.has(Number(item.drinkId)) ? Number(item.drinkId) : null,
     }))
     .filter((item) => item.name && item.quantity > 0);

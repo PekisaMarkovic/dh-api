@@ -78,13 +78,15 @@ export class PurchaseImportService {
     const startedAt = Date.now();
 
     try {
-      const [extraction, drinks] = await Promise.all([
-        this.aiService.extractPurchaseItems(file),
-        this.drinkRepository.find({
-          where: { warehouseId },
-          order: { name: 'ASC' },
-        }),
-      ]);
+      // the drinks as they are now go to the AI, so it matches the lines to them
+      const drinks = await this.drinkRepository.find({
+        where: { warehouseId },
+        order: { name: 'ASC' },
+      });
+      const extraction = await this.aiService.extractPurchaseItems(
+        file,
+        drinks.map(({ drinkId, name }) => ({ drinkId, name })),
+      );
 
       const items = await this.itemRepository.save(
         extraction.items.map((line) =>
@@ -92,7 +94,9 @@ export class PurchaseImportService {
             purchaseImportId: record.purchaseImportId,
             nameOnDocument: line.name.slice(0, 255),
             quantity: line.quantity,
-            suggestedDrinkId: findBestMatch(line.name, drinks)?.drinkId ?? null,
+            // the match of the AI, else the closest name
+            suggestedDrinkId:
+              line.drinkId ?? findBestMatch(line.name, drinks)?.drinkId ?? null,
           }),
         ),
       );

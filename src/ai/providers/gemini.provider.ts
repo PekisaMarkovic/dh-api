@@ -1,10 +1,11 @@
-import { GoogleGenAI, Type } from '@google/genai';
+import { FinishReason, GoogleGenAI, Type } from '@google/genai';
 import {
   AiFile,
   AiProvider,
   cleanItems,
   composeTitle,
-  PURCHASE_PROMPT,
+  KnownDrink,
+  purchasePrompt,
   PurchaseExtraction,
   PurchaseItem,
 } from '@/ai/ai.types';
@@ -19,7 +20,10 @@ export class GeminiProvider implements AiProvider {
     this.client = new GoogleGenAI({ apiKey });
   }
 
-  async extractPurchaseItems(file: AiFile): Promise<PurchaseExtraction> {
+  async extractPurchaseItems(
+    file: AiFile,
+    drinks: KnownDrink[],
+  ): Promise<PurchaseExtraction> {
     // images and PDFs are both sent inline
     const response = await this.client.models.generateContent({
       model: this.model,
@@ -27,7 +31,7 @@ export class GeminiProvider implements AiProvider {
         {
           role: 'user',
           parts: [
-            { text: PURCHASE_PROMPT },
+            { text: purchasePrompt(drinks) },
             {
               inlineData: {
                 mimeType: file.mimetype,
@@ -50,10 +54,11 @@ export class GeminiProvider implements AiProvider {
               type: Type.ARRAY,
               items: {
                 type: Type.OBJECT,
-                required: ['name', 'quantity'],
+                required: ['name', 'quantity', 'drinkId'],
                 properties: {
                   name: { type: Type.STRING },
                   quantity: { type: Type.INTEGER },
+                  drinkId: { type: Type.INTEGER },
                 },
               },
             },
@@ -61,6 +66,12 @@ export class GeminiProvider implements AiProvider {
         },
       },
     });
+
+    // anything but STOP is a cut answer (too long, blocked): some lines would be missing without a word
+    const reason = response.candidates?.[0]?.finishReason;
+    if (reason && reason !== FinishReason.STOP) {
+      throw new Error(`The AI did not finish the answer (${reason})`);
+    }
 
     const parsed = JSON.parse(response.text ?? '{"items":[]}') as {
       buyerName?: string;
@@ -71,7 +82,10 @@ export class GeminiProvider implements AiProvider {
 
     return {
       title: composeTitle(parsed),
-      items: cleanItems(parsed.items),
+      items: cleanItems(
+        parsed.items,
+        new Set(drinks.map((drink) => drink.drinkId)),
+      ),
       raw: parsed,
     };
   }

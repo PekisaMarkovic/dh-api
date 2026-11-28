@@ -121,8 +121,8 @@ describe('PurchaseImportService', () => {
     const extraction = {
       title: 'PRIVATNA ZURKA Predracun 40/26',
       items: [
-        { name: 'FANTA 1.5L', quantity: 2 },
-        { name: 'HENNESSY VS 0.7L', quantity: 1 },
+        { name: 'FANTA 1.5L', quantity: 2, drinkId: null },
+        { name: 'HENNESSY VS 0.7L', quantity: 1, drinkId: null },
       ],
       raw: { buyerName: 'PRIVATNA ZURKA', items: [] },
     };
@@ -231,6 +231,23 @@ describe('PurchaseImportService', () => {
         ],
         drinks,
       });
+    });
+
+    it('should send the drinks of the warehouse to the AI and take its match first', async () => {
+      aiService.extractPurchaseItems.mockResolvedValue({
+        ...extraction,
+        items: [{ name: 'TUB 0,33 LIM', quantity: 24, drinkId: 2 }],
+      });
+
+      await service.parse(5, file, user);
+
+      expect(aiService.extractPurchaseItems).toHaveBeenCalledWith(file, drinks);
+      expect(itemRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          nameOnDocument: 'TUB 0,33 LIM',
+          suggestedDrinkId: 2,
+        }),
+      );
     });
 
     it('should not change the stock', async () => {

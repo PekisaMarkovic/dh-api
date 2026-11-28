@@ -11,7 +11,12 @@ import {
   AI_MODEL,
   AI_RETRY_BASE_DELAY_MS,
 } from '@/ai/ai.constants';
-import { AiFile, AiProvider, PurchaseExtraction } from '@/ai/ai.types';
+import {
+  AiFile,
+  AiProvider,
+  KnownDrink,
+  PurchaseExtraction,
+} from '@/ai/ai.types';
 import { GeminiProvider } from '@/ai/providers/gemini.provider';
 import {
   isRetryable,
@@ -33,17 +38,20 @@ export class AiService {
   constructor(private readonly configService: ConfigService) {}
 
   /**
-   * Reads the drinks and their quantities from an image or a PDF
+   * Reads the drinks and their quantities from an image or a PDF and matches them to the given drinks
    * @throws ServiceUnavailableException if the AI is not set up, has no quota or the key is wrong
    * @throws BadGatewayException if the AI fails or returns rubbish
    */
-  async extractPurchaseItems(file: AiFile): Promise<PurchaseExtraction> {
+  async extractPurchaseItems(
+    file: AiFile,
+    drinks: KnownDrink[],
+  ): Promise<PurchaseExtraction> {
     const provider = this.getProvider();
 
     return this.limit.run(async () => {
       for (let attempt = 0; ; attempt++) {
         try {
-          return await provider.extractPurchaseItems(file);
+          return await provider.extractPurchaseItems(file, drinks);
         } catch (error) {
           if (isRetryable(error) && attempt < AI_MAX_RETRIES) {
             const delay = AI_RETRY_BASE_DELAY_MS * 2 ** attempt;
